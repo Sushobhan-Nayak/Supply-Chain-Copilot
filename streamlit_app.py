@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import graphviz
 import altair as alt
 import json
 
@@ -22,6 +21,10 @@ from cortex_agent import (
 )
 
 
+# ============================================================================
+# PAGE CONFIG
+# ============================================================================
+
 st.set_page_config(
     page_title="Supply Chain Copilot",
     page_icon="🔗",
@@ -31,672 +34,210 @@ st.set_page_config(
 
 
 # ============================================================================
-# STYLING
+# GLOBAL CSS
 # ============================================================================
+
 st.markdown(
     """
-<style>
-    #MainMenu { visibility: hidden !important; }
-    footer { visibility: hidden !important; }
+    <style>
 
-    .stApp, body {
-        background-color: #ffffff !important;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
-    }
+    /* ------------------------------------------------------------------ */
+    /* General                                                           */
+    /* ------------------------------------------------------------------ */
 
-    [data-testid="stSidebarResizeHandle"] {
-        display: none !important;
-    }
-
-    [data-testid="stAppViewContainer"] {
-        gap: 0 !important;
-    }
-
-    [data-testid="stSidebar"] {
-        margin-right: 0 !important;
-    }
-
-    [data-testid="stMain"] {
-        padding-left: 0 !important;
-        margin-left: 0 !important;
-    }
-
-    [data-testid="stMainBlockContainer"],
     .block-container {
-        max-width: 100% !important;
-        padding-top: 1.25rem !important;
-        padding-bottom: 2rem !important;
-        padding-left: 2rem !important;
-        padding-right: 2rem !important;
+        padding-top: 1rem;
+        padding-bottom: 7rem;
     }
 
-    .nav-group {
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: #98a1ac;
-        margin: 18px 0 4px 2px;
+    .stApp {
+        background-color: #ffffff;
     }
 
-    [data-testid="stSidebar"] {
-        background: #fafbfc !important;
+    /* ------------------------------------------------------------------ */
+    /* Sidebar                                                           */
+    /* ------------------------------------------------------------------ */
+
+    section[data-testid="stSidebar"] {
+        border-right: 1px solid #e5e7eb;
     }
 
-    [data-testid="stSidebar"] [role="radiogroup"] {
-        gap: 2px !important;
+    section[data-testid="stSidebar"] > div {
+        padding-top: 1rem;
     }
 
-    [data-testid="stSidebar"] [role="radiogroup"] label {
-        display: flex !important;
-        align-items: center !important;
-        padding: 8px 12px !important;
-        border-radius: 8px !important;
-        margin: 0 !important;
-        width: 100% !important;
-        cursor: pointer;
-    }
+    /* ------------------------------------------------------------------ */
+    /* Dashboard                                                         */
+    /* ------------------------------------------------------------------ */
 
-    [data-testid="stSidebar"] [role="radiogroup"] input {
-        display: none !important;
-    }
-
-    [data-testid="stSidebar"] [data-testid="stRadioOption"] > div > div:first-of-type {
-        display: none !important;
-    }
-
-    [data-testid="stSidebar"] [role="radiogroup"] label:hover {
-        background: #eef2f7 !important;
-    }
-
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
-        background: #e8f0fc !important;
-    }
-
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {
-        color: #2568c4 !important;
-        font-weight: 600 !important;
-    }
-
-    [data-testid="stSidebar"] [role="radiogroup"] p {
-        font-size: 14px !important;
-        color: #3c4149 !important;
-    }
-
-    [data-testid="stSidebar"] .brand-container {
-        margin-bottom: 16px;
-    }
-
-    .st-key-new_chat button {
-        background: #ffffff !important;
-        color: #2568c4 !important;
-        font-weight: 600 !important;
-        border: 1.5px solid #2568c4 !important;
-        border-radius: 8px !important;
-        font-size: 13px !important;
-    }
-
-    .st-key-new_chat button:hover {
-        background: #eef4fd !important;
-        border-color: #1f57a8 !important;
-    }
-
-    .hist-empty {
-        font-size: 12px;
-        color: #98a1ac;
-        padding: 8px 4px;
-        font-style: italic;
-    }
-
-    [data-testid="stSidebar"] .st-key-hist_active button {
-        background: #e8f0fc !important;
-        color: #2568c4 !important;
-    }
-
-    .brand-container {
-        display: flex;
-        align-items: center;
-        gap: 11px;
-        font-weight: 700;
-        font-size: 19px;
-        color: #1c1e21 !important;
-    }
-
-    .brand-logo {
-        width: 34px;
-        height: 34px;
-        border-radius: 9px;
-        background: #2568c4 !important;
-        color: #fff !important;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 14px;
-        font-weight: 700;
-        flex-shrink: 0;
-    }
-
-    /* Segmented tabs */
-    [data-testid="stPills"] button {
-        border-radius: 20px !important;
-        border: 0.5px solid #e3e5e9 !important;
-        background: #ffffff !important;
-        color: #565c66 !important;
-        font-size: 13px !important;
-        font-weight: 500 !important;
-    }
-
-    [data-testid="stPills"] button[aria-selected="true"],
-    [data-testid="stPills"] button[kind="pillsActive"] {
-        background: #e8f0fc !important;
-        color: #2568c4 !important;
-        font-weight: 600 !important;
-        border-color: transparent !important;
-    }
-
-    /* KPI cards */
-    .kpi-inner {
-        background: #f8f9fb;
-        border: 1px solid #eceef1;
-        border-radius: 10px;
-        border-left: 3px solid #ccc;
-        padding: 12px 16px;
-    }
-
-    .kpi-inner .label {
-        font-size: 12px;
-        color: #8a909b !important;
-    }
-
-    .kpi-inner .value {
-        font-size: 24px;
-        font-weight: 600;
-        color: #1c1e21 !important;
-        margin-top: 2px;
-    }
-
-    .band-rule {
-        height: 1px;
-        background: #e3e5e9;
-        margin: 20px 0 18px;
-    }
-
-    /* Dashboard */
-    .dash-heading {
+    .dashboard-title {
         font-size: 28px;
         font-weight: 700;
-        color: #1c1e21 !important;
-        margin: 4px 0 20px;
-        letter-spacing: -0.01em;
+        margin-bottom: 2px;
     }
 
-    [class*="st-key-chartcard_"] {
-        border: 1px solid #e3e5e9 !important;
-        border-radius: 12px !important;
-        background: #ffffff !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
-        padding: 0 0 14px !important;
-        overflow: hidden !important;
-        margin-bottom: 6px !important;
+    .dashboard-subtitle {
+        color: #6b7280;
+        margin-bottom: 18px;
     }
 
-    .chart-card-title {
-        background: #f4f6f9;
-        border-bottom: 1px solid #e3e5e9;
-        margin: 0 0 14px;
-        padding: 12px 16px;
-        font-size: 15px;
-        font-weight: 700;
-        color: #1c1e21 !important;
-        text-align: center;
-    }
-
-    [class*="st-key-chartcard_"] [data-testid="stElementContainer"] {
-        padding: 0 14px !important;
-    }
-
-    [class*="st-key-chartcard_"] .chart-card-title {
-        padding: 12px 16px !important;
-    }
-
-    /* Main 3-column layout */
-    .st-key-main_row > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(2),
-    .st-key-main_row > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(3) {
-        border-left: 1px solid #e3e5e9 !important;
-        padding-left: 24px !important;
-    }
-
-    /* Left rail */
-    .st-key-main_row > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child:nth-last-child(2) {
-        background-color: #f7f8fa !important;
-        border-right: 1px solid #e3e5e9 !important;
-        border-radius: 12px !important;
-        padding: 16px !important;
-    }
-
-    .st-key-main_row > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child:nth-last-child(2)
-        + [data-testid="stColumn"] {
-        border-left: none !important;
-        padding-left: 16px !important;
-    }
-
-    .col-label {
-        font-size: 11px;
-        color: #8a909b !important;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        padding-left: 9px;
-        margin: 20px 0 8px;
-        font-weight: 600;
-    }
-
-    /* Buttons */
-    [data-testid="stButton"] button {
-        border-radius: 8px !important;
-        border: 0.5px solid transparent !important;
-        background: transparent !important;
-        color: #565c66 !important;
-        font-size: 13px !important;
-        font-weight: 500 !important;
-        text-align: left !important;
-        justify-content: flex-start !important;
-        padding: 7px 9px !important;
-        min-height: 0 !important;
-    }
-
-    [data-testid="stButton"] button:hover {
-        background: #f4f5f7 !important;
-        color: #1c1e21 !important;
-    }
-
-    [data-testid="stSidebar"] [class*="st-key-hist_"] button,
-    [data-testid="stSidebar"] [class*="st-key-hist_"] button * {
-        justify-content: flex-start !important;
-        text-align: left !important;
-        font-size: 13px !important;
-    }
-
-    [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] {
-        flex-wrap: nowrap !important;
-        gap: 2px !important;
-        align-items: center !important;
-    }
-
-    [class*="st-key-del_"] button {
-        background: transparent !important;
-        border: none !important;
-        padding: 4px 6px !important;
-        min-height: 0 !important;
-        opacity: 0.4 !important;
-        font-size: 13px !important;
-    }
-
-    [class*="st-key-del_"] button:hover {
-        opacity: 1 !important;
-        background: #f4d9d9 !important;
-        color: #c0392b !important;
-    }
-
-    /* Chat */
-    .user-row {
-        display: flex;
-        justify-content: flex-end;
-        margin: 8px 0 16px;
-    }
-
-    .user-bubble {
-        background: #2568c4 !important;
-        color: #fff !important;
-        padding: 11px 15px;
-        border-radius: 16px 16px 4px 16px;
-        font-size: 14px;
-        line-height: 1.5;
-        max-width: 85%;
-    }
-
-    .assistant-answer-value {
-        font-size: 32px;
-        font-weight: 600;
-        color: #1c1e21 !important;
-        letter-spacing: -0.01em;
-    }
-
-    .assistant-delta {
-        font-size: 12px;
-        color: #177a52 !important;
-        background: #e5f5ee !important;
-        padding: 2px 9px;
-        border-radius: 20px;
-        font-weight: 500;
-        margin-left: 8px;
-    }
-
-    .assistant-sub {
-        font-size: 13px;
-        color: #565c66 !important;
-        margin-top: 5px;
-    }
-
-    .assistant-prose {
-        font-size: 14px;
-        color: #1c1e21 !important;
-        line-height: 1.6;
-        margin-top: 12px;
-    }
-
-    .empty-greeting {
-        text-align: center;
-        color: #8a909b;
-        font-size: 14px;
-        margin: 22vh 0 30px;
-    }
-
-    .empty-greeting .big {
-        display: block;
-        font-size: 24px;
-        font-weight: 600;
-        color: #1c1e21;
-        margin-bottom: 6px;
-    }
-
-    /* Trace box */
-    .trace-box {
-        border: 0.5px solid #e3e5e9 !important;
+    .kpi-card {
+        border: 1px solid #e5e7eb;
         border-radius: 12px;
-        background: #ffffff !important;
-        overflow: hidden;
-        margin: 4px 0 14px;
+        padding: 16px;
+        background: #ffffff;
+        min-height: 105px;
     }
 
-    .trace-head {
-        display: flex;
-        align-items: center;
-        gap: 7px;
-        padding: 9px 13px;
-        background: #f4f5f7 !important;
-        border-bottom: 0.5px solid #e3e5e9 !important;
-        font-size: 12px;
-    }
-
-    .trace-head .title {
-        font-weight: 600;
-        color: #1c1e21 !important;
-    }
-
-    .trace-head .meta {
-        color: #8a909b !important;
-    }
-
-    .trace-body {
-        padding: 10px 14px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .trace-step {
+    .kpi-label {
+        color: #6b7280;
         font-size: 13px;
-        color: #565c66 !important;
+        margin-bottom: 7px;
     }
 
-    .trace-step code {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
-        color: #1c1e21 !important;
-        background: #f4f5f7 !important;
-        padding: 1px 5px;
-        border-radius: 4px;
-        font-size: 12px;
+    .kpi-value {
+        font-size: 27px;
+        font-weight: 700;
+        line-height: 1.1;
     }
 
-    .trace-check {
-        color: #177a52 !important;
-        font-weight: bold;
-        margin-right: 6px;
+    /* ------------------------------------------------------------------ */
+    /* Chat                                                              */
+    /* ------------------------------------------------------------------ */
+
+    .chat-header {
+        font-size: 27px;
+        font-weight: 700;
+        margin-bottom: 2px;
     }
 
-    .answer-card {
-        border: 0.5px solid #e3e5e9 !important;
-        border-radius: 14px;
-        padding: 16px 18px;
-        background: #f4f5f7 !important;
-        margin-bottom: 12px;
+    .chat-subtitle {
+        color: #6b7280;
+        margin-bottom: 15px;
     }
 
-    /* Grounding */
-    .g-head {
-        font-size: 13px;
-        font-weight: 600;
-        color: #177a52 !important;
-        margin-bottom: 12px;
-        padding-bottom: 10px;
-        border-bottom: 0.5px solid #e3e5e9 !important;
+    .chat-message-user {
+        background: #f3f4f6;
+        border-radius: 12px;
+        padding: 11px 14px;
+        margin: 8px 0;
+        margin-left: 18%;
     }
 
-    .g-label {
+    .chat-message-assistant {
+        padding: 10px 5px;
+        margin: 8px 0;
+        margin-right: 8%;
+    }
+
+    .message-role {
         font-size: 11px;
-        color: #8a909b !important;
-        margin-top: 12px;
-    }
-
-    .g-value {
-        font-size: 13px;
-        font-weight: 600;
-        color: #1c1e21 !important;
-    }
-
-    .g-text {
-        font-size: 12px;
-        color: #565c66 !important;
-        line-height: 1.5;
-    }
-
-    .g-sql {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
-        font-size: 11px;
-        background: #f4f5f7 !important;
-        border: 0.5px solid #e3e5e9 !important;
-        border-radius: 8px;
-        padding: 10px 12px;
-        color: #565c66 !important;
-        line-height: 1.7;
-        margin-top: 5px;
-    }
-
-    .g-divider {
-        height: 0.5px;
-        background: #e3e5e9 !important;
-        margin: 14px 0;
-    }
-
-    /* Ontology detail card */
-    .st-key-onto_stage {
-        position: relative !important;
-    }
-
-    .st-key-onto_detail_card {
-        position: absolute !important;
-        top: 14px;
-        right: 14px;
-        z-index: 20 !important;
-        width: 320px !important;
-        max-height: 560px !important;
-        overflow-y: auto !important;
-        background: #ffffff !important;
-        border: 1px solid #e3e5e9 !important;
-        border-radius: 12px !important;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.10) !important;
-        padding: 14px 16px !important;
-    }
-
-    .g-row {
-        display: flex;
-        justify-content: space-between;
-        font-size: 12px;
-        padding: 5px 0;
-    }
-
-    .g-row .name {
-        color: #565c66 !important;
-    }
-
-    .g-row .val {
-        font-weight: 600;
-        color: #1c1e21 !important;
-    }
-
-    /* Ontology */
-    .onto-group-title {
-        font-size: 11px;
-        color: #8a909b !important;
-        margin: 14px 0 8px;
+        font-weight: 700;
+        color: #6b7280;
+        margin-bottom: 4px;
         text-transform: uppercase;
-        letter-spacing: 0.04em;
+        letter-spacing: 0.03em;
     }
 
-    .onto-item {
-        display: flex;
-        justify-content: space-between;
+    /* ------------------------------------------------------------------ */
+    /* Ontology                                                          */
+    /* ------------------------------------------------------------------ */
+
+    .ontology-title {
+        font-size: 28px;
+        font-weight: 700;
+        margin-bottom: 2px;
+    }
+
+    .ontology-subtitle {
+        color: #6b7280;
+        margin-bottom: 18px;
+    }
+
+    .ontology-card {
+        padding: 14px 16px;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        background: #ffffff;
+    }
+
+    .entity-title {
+        font-size: 22px;
+        font-weight: 700;
+    }
+
+    .muted {
+        color: #6b7280;
+    }
+
+    .edge {
+        padding: 8px 10px;
+        border-radius: 7px;
+        background: #f5f6f8;
+        margin-bottom: 6px;
         font-size: 13px;
-        color: #565c66 !important;
-        padding: 4px 0;
-    }
-
-    .onto-item .count {
-        color: #8a909b !important;
-        font-size: 12px;
     }
 
     .metric-card {
-        border: 0.5px solid #e3e5e9 !important;
+        border: 1px solid #e5e7eb;
         border-radius: 10px;
         padding: 10px 12px;
-        margin-bottom: 10px;
-        background: #ffffff !important;
+        margin-bottom: 8px;
     }
 
     .metric-card .m-name {
         font-size: 13px;
         font-weight: 600;
-        color: #1c1e21 !important;
     }
 
     .metric-card .m-def {
         font-size: 12px;
-        color: #565c66 !important;
-        margin-top: 2px;
+        color: #6b7280;
+        margin-top: 3px;
         line-height: 1.4;
     }
 
     .metric-card .m-view {
-        font-size: 11px;
-        color: #8a909b !important;
+        font-size: 10px;
+        color: #9ca3af;
         margin-top: 5px;
-        font-family: ui-monospace, Menlo, Consolas, monospace !important;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
 
-    /* Scrollable chat */
-    .st-key-msg_scroll {
+    /* ------------------------------------------------------------------ */
+    /* Persona                                                           */
+    /* ------------------------------------------------------------------ */
+
+    .persona-caption {
+        color: #6b7280;
+        font-size: 12px;
+        margin-bottom: 5px;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Composer                                                          */
+    /* ------------------------------------------------------------------ */
+
+    div[data-testid="stVerticalBlock"]:has(.composer-bar) {
+        border-radius: 14px;
+    }
+
+    .composer-bar {
+        border: 1px solid #dfe3e8;
+        border-radius: 14px;
+        padding: 8px;
+        background: #ffffff;
+        box-shadow: 0 3px 14px rgba(0, 0, 0, 0.06);
+    }
+
+    .composer-bar input {
         border: none !important;
-        background: transparent !important;
         box-shadow: none !important;
-        padding: 0 8px 90px !important;
-        max-width: 820px !important;
-        margin: 0 auto !important;
     }
 
-    /* Composer */
-    [data-testid="stChatInput"] {
-        border-radius: 14px !important;
-        border: 1px solid #e3e5e9 !important;
-    }
-
-    [data-testid="stChatInput"] textarea {
-        font-size: 14px !important;
-    }
-
-    [data-testid="stBottom"] {
-        background: transparent !important;
-    }
-
-    [data-testid="stBottom"] > div {
-        max-width: 100% !important;
-        padding: 0 !important;
-    }
-
-    [data-testid="stBottomBlockContainer"] {
-        max-width: 100% !important;
-        padding: 0 2rem !important;
-        margin: 0 !important;
-    }
-
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        width: 300px !important;
-        min-width: 300px !important;
-    }
-
-    [data-testid="stSidebarCollapseButton"],
-    [data-testid="stSidebarCollapse"],
-    [data-testid="collapsedControl"] {
-        display: none !important;
-    }
-
-    /* Fixed composer dock */
-    .st-key-composer_dock {
-        position: fixed !important;
-        bottom: 0 !important;
-        left: 300px !important;
-        right: 0 !important;
-        width: auto !important;
-        box-sizing: border-box !important;
-        z-index: 100 !important;
-        background: linear-gradient(
-            to top,
-            #ffffff 62%,
-            rgba(255,255,255,0)
-        ) !important;
-        padding: 10px 2rem 16px !important;
-    }
-
-    /* Composer bar */
-    .st-key-composer_bar {
-        border: 1px solid #e3e5e9 !important;
-        border-radius: 20px !important;
-        background: #ffffff !important;
-        padding: 0 10px !important;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.05) !important;
-        margin: 0 auto !important;
-        max-width: 760px !important;
-    }
-
-    .st-key-composer_bar [data-testid="stHorizontalBlock"] {
-        gap: 6px !important;
-        align-items: center !important;
-    }
-
-    .st-key-composer_bar [data-testid="stTextInput"] > div > div {
-        border: none !important;
-        background: transparent !important;
-        box-shadow: none !important;
-        padding: 0 !important;
-    }
-
-    .st-key-composer_bar [data-testid="stTextInput"] input {
-        font-size: 14px !important;
-        padding: 2px 8px !important;
-        min-height: 0 !important;
-        height: 30px !important;
-    }
-
-    .st-key-composer_bar [data-testid="stButton"] button {
-        border-radius: 18px !important;
-        height: 32px !important;
-        min-height: 32px !important;
-        margin: 0 !important;
-        padding: 0 14px !important;
-    }
-</style>
-""",
+    </style>
+    """,
     unsafe_allow_html=True,
 )
 
@@ -704,825 +245,688 @@ st.markdown(
 # ============================================================================
 # SESSION STATE
 # ============================================================================
-if "active_view" not in st.session_state:
-    st.session_state.active_view = "Chat"
 
-if "active_persona" not in st.session_state:
-    st.session_state.active_persona = "Planning"
-
-if "chat_messages" not in st.session_state:
-    st.session_state.chat_messages = []
-
-if "thread_id" not in st.session_state:
-    st.session_state.thread_id = None
-
-if "parent_message_id" not in st.session_state:
-    st.session_state.parent_message_id = 0
-
-if "active_entity" not in st.session_state:
-    st.session_state.active_entity = None
-
-
-# ============================================================================
-# GOVERNED KPI SNAPSHOT
-# ============================================================================
-KPI_SNAPSHOT_QUERY = (
-    "SELECT METRIC_ID, METRIC_NAME, METRIC_VALUE, UNIT "
-    "FROM SUPPLY_CHAIN_ONTOLOGY.CORE.V_DASHBOARD_KPI_SNAPSHOT"
-)
-
-KPI_COLOR = {
-    "outbound_otd": "#378ADD",
-    "inbound_otd": "#E0B84B",
-    "fill_rate": "#1D9E75",
-    "dii": "#D85A30",
-    "landed_cost": "#7F77DD",
+DEFAULT_SESSION_STATE = {
+    "active_view": "Dashboard",
+    "active_persona": "Planning",
+    "chat_messages": [],
+    "thread_id": None,
+    "parent_message_id": None,
+    "active_entity": None,
+    "pending_question": None,
+    "composer_input": "",
+    "pending_clear": False,
 }
 
+for key, value in DEFAULT_SESSION_STATE.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
+
 
 # ============================================================================
-# PERSONA CONFIGURATION
+# PERSONA CONFIG
 # ============================================================================
-PERSONA_CONFIG = {
+
+PERSONAS = {
     "Planning": {
-        "kpi_order": [
-            "outbound_otd",
-            "fill_rate",
-            "dii",
-            "landed_cost",
-            "inbound_otd",
-        ],
-        "accent": "#2568c4",
-        "accent_dark": "#1f57a8",
-        "accent_soft": "#e8f0fc",
-        "accent_hover": "#f0f5fd",
+        "icon": "📊",
+        "description": "Inventory, demand and fulfillment",
+        "color": "#378ADD",
     },
     "Procurement": {
-        "kpi_order": [
-            "inbound_otd",
-            "landed_cost",
-            "dii",
-            "fill_rate",
-            "outbound_otd",
-        ],
-        "accent": "#1d9e75",
-        "accent_dark": "#177f5e",
-        "accent_soft": "#e3f5ee",
-        "accent_hover": "#eefaf5",
+        "icon": "🛒",
+        "description": "Suppliers, inbound and landed cost",
+        "color": "#1D9E75",
     },
     "Logistics": {
-        "kpi_order": [
-            "outbound_otd",
-            "inbound_otd",
-            "fill_rate",
-            "dii",
-            "landed_cost",
-        ],
-        "accent": "#d0463a",
-        "accent_dark": "#ad392f",
-        "accent_soft": "#fbe9e7",
-        "accent_hover": "#fdf3f1",
+        "icon": "🚚",
+        "description": "Shipments, delivery and transportation",
+        "color": "#D85A30",
     },
 }
 
 
-def _fmt_kpi(value, unit: str) -> str:
-    try:
-        v = float(value)
-    except (TypeError, ValueError):
-        return "—"
-
-    if unit == "PERCENT":
-        return f"{v * 100:.1f}%"
-
-    if unit == "DAYS":
-        return f"{v:.1f}"
-
-    if unit == "USD":
-        return f"${v:,.2f}"
-
-    return f"{v:,.2f}"
-
-
-@st.cache_data(ttl=300, show_spinner=False)
-def load_kpis() -> tuple[dict[str, dict], list[str]]:
-    """Read the governed KPI snapshot."""
-    errors = []
-    metrics: dict[str, dict] = {}
-
-    try:
-        cols, rows = run_sql(KPI_SNAPSHOT_QUERY)
-        idx = {c: i for i, c in enumerate(cols)}
-
-        for r in rows:
-            mid = r[idx["METRIC_ID"]]
-
-            metrics[mid] = {
-                "name": r[idx["METRIC_NAME"]],
-                "value": _fmt_kpi(
-                    r[idx["METRIC_VALUE"]],
-                    r[idx["UNIT"]],
-                ),
-                "color": KPI_COLOR.get(mid, "#8a909b"),
-            }
-
-    except Exception as e:
-        errors.append(
-            f"KPI snapshot: {type(e).__name__}: {e}"
-        )
-
-    return metrics, errors
-
-
 # ============================================================================
-# DASHBOARD SQL
+# SQL HELPERS
 # ============================================================================
-_O = "SUPPLY_CHAIN_ONTOLOGY.CORE.VW_ON_TIME_DELIVERY_OUTBOUND"
-_I = "SUPPLY_CHAIN_ONTOLOGY.CORE.VW_ON_TIME_DELIVERY_INBOUND"
-_F = "SUPPLY_CHAIN_ONTOLOGY.CORE.VW_FILL_RATE"
-_D = "SUPPLY_CHAIN_ONTOLOGY.CORE.VW_DAYS_OF_INVENTORY"
-_L = "SUPPLY_CHAIN_ONTOLOGY.CORE.VW_LANDED_COST"
-_SUP = "SUPPLY_CHAIN_ONTOLOGY.RAW.DIM_SUPPLIER"
 
-_LANDED_NUM = (
-    "(UNIT_PRICE_USD*QUANTITY_SHIPPED+"
-    "FREIGHT_COST_USD+INSURANCE_COST_USD+CUSTOMS_COST_USD)"
-)
-
-_LANDED_NUM_L = (
-    "(l.UNIT_PRICE_USD*l.QUANTITY_SHIPPED+"
-    "l.FREIGHT_COST_USD+l.INSURANCE_COST_USD+l.CUSTOMS_COST_USD)"
-)
-
-
-PERSONA_DASHBOARD_QUERIES = {
-    "Planning": [
-        (
-            "Outbound OTD trend",
-            f"""
-            SELECT
-                DELIVERY_MONTH AS MONTH,
-                ROUND(AVG(IS_ON_TIME)*100,2) AS OTD_PCT
-            FROM {_O}
-            GROUP BY DELIVERY_MONTH
-            ORDER BY DELIVERY_MONTH
-            """,
-            "line",
-            "MONTH",
-            "OTD_PCT",
-            "#2568c4",
-        ),
-        (
-            "Fill rate trend",
-            f"""
-            SELECT
-                ORDER_MONTH AS MONTH,
-                ROUND(
-                    SUM(QUANTITY_SHIPPED) /
-                    NULLIF(SUM(QUANTITY_ORDERED),0) * 100,
-                    2
-                ) AS FILL_PCT
-            FROM {_F}
-            GROUP BY ORDER_MONTH
-            ORDER BY ORDER_MONTH
-            """,
-            "line",
-            "MONTH",
-            "FILL_PCT",
-            "#1D9E75",
-        ),
-        (
-            "Days of inventory by plant",
-            f"""
-            SELECT
-                PLANT_ID,
-                ROUND(
-                    SUM(ON_HAND_QTY) /
-                    NULLIF(SUM(AVG_DAILY_USAGE),0),
-                    1
-                ) AS DII
-            FROM {_D}
-            GROUP BY PLANT_ID
-            ORDER BY DII DESC
-            """,
-            "bar",
-            "PLANT_ID",
-            "DII",
-            "#D85A30",
-        ),
-        (
-            "Days of inventory by part category",
-            f"""
-            SELECT
-                PART_CATEGORY_ID,
-                ROUND(
-                    SUM(ON_HAND_QTY) /
-                    NULLIF(SUM(AVG_DAILY_USAGE),0),
-                    1
-                ) AS DII
-            FROM {_D}
-            GROUP BY PART_CATEGORY_ID
-            ORDER BY DII DESC
-            """,
-            "bar",
-            "PART_CATEGORY_ID",
-            "DII",
-            "#7F77DD",
-        ),
-        (
-            "Inventory on hand by plant",
-            f"""
-            SELECT
-                PLANT_ID,
-                SUM(ON_HAND_QTY) AS ON_HAND
-            FROM {_D}
-            GROUP BY PLANT_ID
-            ORDER BY ON_HAND DESC
-            """,
-            "bar",
-            "PLANT_ID",
-            "ON_HAND",
-            "#378ADD",
-        ),
-    ],
-
-    "Procurement": [
-        (
-            "Inbound OTD by supplier (worst 12)",
-            f"""
-            SELECT
-                s.SUPPLIER_NAME AS SUPPLIER,
-                ROUND(AVG(i.IS_ON_TIME)*100,2) AS OTD_PCT
-            FROM {_I} i
-            LEFT JOIN {_SUP} s
-                ON i.SUPPLIER_ID=s.SUPPLIER_ID
-            GROUP BY s.SUPPLIER_NAME
-            ORDER BY OTD_PCT ASC
-            LIMIT 12
-            """,
-            "bar",
-            "SUPPLIER",
-            "OTD_PCT",
-            "#E0B84B",
-        ),
-        (
-            "Landed cost by supplier (top 12)",
-            f"""
-            SELECT
-                s.SUPPLIER_NAME AS SUPPLIER,
-                ROUND(
-                    SUM({_LANDED_NUM_L}) /
-                    NULLIF(SUM(l.QUANTITY_SHIPPED),0),
-                    2
-                ) AS LANDED
-            FROM {_L} l
-            LEFT JOIN {_SUP} s
-                ON l.SUPPLIER_ID=s.SUPPLIER_ID
-            GROUP BY s.SUPPLIER_NAME
-            ORDER BY LANDED DESC
-            LIMIT 12
-            """,
-            "bar",
-            "SUPPLIER",
-            "LANDED",
-            "#7F77DD",
-        ),
-        (
-            "Landed cost by part (top 12)",
-            f"""
-            SELECT
-                PART_ID,
-                ROUND(
-                    SUM({_LANDED_NUM}) /
-                    NULLIF(SUM(QUANTITY_SHIPPED),0),
-                    2
-                ) AS LANDED
-            FROM {_L}
-            GROUP BY PART_ID
-            ORDER BY LANDED DESC
-            LIMIT 12
-            """,
-            "bar",
-            "PART_ID",
-            "LANDED",
-            "#D85A30",
-        ),
-        (
-            "Landed cost breakdown",
-            f"""
-            SELECT
-                SUM(UNIT_PRICE_USD*QUANTITY_SHIPPED) AS PRODUCT,
-                SUM(FREIGHT_COST_USD) AS FREIGHT,
-                SUM(INSURANCE_COST_USD) AS INSURANCE,
-                SUM(CUSTOMS_COST_USD) AS CUSTOMS
-            FROM {_L}
-            """,
-            "components",
-            "",
-            "",
-            "#2568c4",
-        ),
-        (
-            "Supplier reliability vs inbound OTD",
-            f"""
-            SELECT
-                s.SUPPLIER_RELIABILITY_SCORE AS RELIABILITY,
-                ROUND(AVG(i.IS_ON_TIME)*100,2) AS OTD_PCT
-            FROM {_I} i
-            JOIN {_SUP} s
-                ON i.SUPPLIER_ID=s.SUPPLIER_ID
-            GROUP BY s.SUPPLIER_RELIABILITY_SCORE
-            HAVING COUNT(*)>0
-            ORDER BY RELIABILITY
-            """,
-            "scatter",
-            "RELIABILITY",
-            "OTD_PCT",
-            "#1D9E75",
-        ),
-    ],
-
-    "Logistics": [
-        (
-            "Outbound OTD trend",
-            f"""
-            SELECT
-                DELIVERY_MONTH AS MONTH,
-                ROUND(AVG(IS_ON_TIME)*100,2) AS OTD_PCT
-            FROM {_O}
-            GROUP BY DELIVERY_MONTH
-            ORDER BY DELIVERY_MONTH
-            """,
-            "line",
-            "MONTH",
-            "OTD_PCT",
-            "#2568c4",
-        ),
-        (
-            "OTD by plant",
-            f"""
-            SELECT
-                PLANT_ID,
-                ROUND(AVG(IS_ON_TIME)*100,2) AS OTD_PCT
-            FROM {_O}
-            GROUP BY PLANT_ID
-            ORDER BY OTD_PCT ASC
-            """,
-            "bar",
-            "PLANT_ID",
-            "OTD_PCT",
-            "#378ADD",
-        ),
-        (
-            "OTD by carrier (worst 12)",
-            f"""
-            SELECT
-                CARRIER,
-                ROUND(AVG(IS_ON_TIME)*100,2) AS OTD_PCT
-            FROM {_O}
-            GROUP BY CARRIER
-            ORDER BY OTD_PCT ASC
-            LIMIT 12
-            """,
-            "bar",
-            "CARRIER",
-            "OTD_PCT",
-            "#E0B84B",
-        ),
-        (
-            "OTD by mode",
-            f"""
-            SELECT
-                MODE,
-                ROUND(AVG(IS_ON_TIME)*100,2) AS OTD_PCT
-            FROM {_O}
-            GROUP BY MODE
-            ORDER BY OTD_PCT ASC
-            """,
-            "bar",
-            "MODE",
-            "OTD_PCT",
-            "#1D9E75",
-        ),
-        (
-            "Late shipments by carrier (top 12)",
-            f"""
-            SELECT
-                CARRIER,
-                SUM(
-                    CASE
-                        WHEN IS_ON_TIME=0 THEN 1
-                        ELSE 0
-                    END
-                ) AS LATE
-            FROM {_O}
-            GROUP BY CARRIER
-            ORDER BY LATE DESC
-            LIMIT 12
-            """,
-            "bar",
-            "CARRIER",
-            "LATE",
-            "#D85A30",
-        ),
-        (
-            "Delivery delay distribution",
-            f"""
-            SELECT
-                CASE
-                    WHEN DELIVERY_DATE<=PROMISED_DELIVERY_DATE
-                        THEN 'On time'
-                    WHEN DATEDIFF(
-                        'day',
-                        PROMISED_DELIVERY_DATE,
-                        DELIVERY_DATE
-                    )=1
-                        THEN '1 day late'
-                    WHEN DATEDIFF(
-                        'day',
-                        PROMISED_DELIVERY_DATE,
-                        DELIVERY_DATE
-                    ) BETWEEN 2 AND 3
-                        THEN '2-3 days late'
-                    WHEN DATEDIFF(
-                        'day',
-                        PROMISED_DELIVERY_DATE,
-                        DELIVERY_DATE
-                    ) BETWEEN 4 AND 7
-                        THEN '4-7 days late'
-                    ELSE '8+ days late'
-                END AS BUCKET,
-                COUNT(*) AS SHIPMENTS
-            FROM {_O}
-            GROUP BY 1
-            """,
-            "bar_v",
-            "BUCKET",
-            "SHIPMENTS",
-            "#2568c4",
-        ),
-    ],
-}
-
-
-_NON_NUMERIC = {
-    "MONTH",
-    "PLANT_ID",
-    "SUPPLIER",
-    "PART_ID",
-    "PART_CATEGORY_ID",
-    "CARRIER",
-    "MODE",
-    "BUCKET",
-}
-
-
-@st.cache_data(ttl=300, show_spinner=False)
 def load_df(sql: str) -> pd.DataFrame:
+    """
+    Execute SQL through cortex_agent.run_sql() and return a DataFrame.
+    """
     try:
-        cols, rows = run_sql(sql)
-        df = pd.DataFrame(rows, columns=cols)
+        result = run_sql(sql)
 
-        for c in df.columns:
-            if c not in _NON_NUMERIC:
-                df[c] = pd.to_numeric(
-                    df[c],
-                    errors="coerce",
-                )
+        if isinstance(result, pd.DataFrame):
+            df = result.copy()
+
+        elif isinstance(result, list):
+            df = pd.DataFrame(result)
+
+        elif isinstance(result, dict):
+            if "data" in result:
+                df = pd.DataFrame(result["data"])
+            elif "rows" in result:
+                df = pd.DataFrame(result["rows"])
+            else:
+                df = pd.DataFrame([result])
+
+        else:
+            df = pd.DataFrame()
+
+        if not df.empty:
+            df.columns = [str(c).upper() for c in df.columns]
 
         return df
 
-    except Exception:
+    except Exception as exc:
+        st.error(f"SQL query failed: {exc}")
         return pd.DataFrame()
 
 
-def line_chart(
-    df: pd.DataFrame,
-    x: str,
-    y: str,
-    color: str,
-    y_title: str,
-):
-    lo = max(0, float(df[y].min()) - 2)
-    hi = float(df[y].max()) + 2
+# ============================================================================
+# KPI SNAPSHOT
+# ============================================================================
 
-    return (
+KPI_SQL = """
+SELECT
+    METRIC_ID,
+    METRIC_NAME,
+    METRIC_VALUE,
+    UNIT
+FROM SUPPLY_CHAIN_ONTOLOGY.CORE.V_DASHBOARD_KPI_SNAPSHOT
+ORDER BY METRIC_ID
+"""
+
+
+def load_kpis() -> pd.DataFrame:
+    return load_df(KPI_SQL)
+
+
+def format_kpi_value(value, unit=None) -> str:
+    if pd.isna(value):
+        return "—"
+
+    try:
+        numeric = float(value)
+    except Exception:
+        return str(value)
+
+    unit = str(unit or "").upper()
+
+    if "%" in unit:
+        return f"{numeric:.1f}%"
+
+    if unit in {"DAYS", "DAY"}:
+        return f"{numeric:.1f}"
+
+    if unit in {"USD", "$"}:
+        return f"${numeric:,.0f}"
+
+    if abs(numeric) >= 1_000_000:
+        return f"{numeric / 1_000_000:.1f}M"
+
+    if abs(numeric) >= 1_000:
+        return f"{numeric / 1_000:.1f}K"
+
+    return f"{numeric:,.1f}"
+
+
+# ============================================================================
+# DASHBOARD QUERIES
+# ============================================================================
+
+DASHBOARD_QUERIES = {
+
+    "Planning": {
+        "Outbound OTD Trend": """
+            SELECT
+                DELIVERY_MONTH,
+                AVG(IS_ON_TIME) * 100 AS OTD_PCT
+            FROM SUPPLY_CHAIN_ONTOLOGY.CORE.VW_ON_TIME_DELIVERY_OUTBOUND
+            GROUP BY DELIVERY_MONTH
+            ORDER BY DELIVERY_MONTH
+        """,
+
+        "Fill Rate Trend": """
+            SELECT
+                ORDER_MONTH,
+                AVG(FILL_RATE) * 100 AS FILL_RATE_PCT
+            FROM SUPPLY_CHAIN_ONTOLOGY.CORE.VW_FILL_RATE
+            GROUP BY ORDER_MONTH
+            ORDER BY ORDER_MONTH
+        """,
+
+        "Days of Inventory by Plant": """
+            SELECT
+                PLANT_ID,
+                AVG(DII) AS DII
+            FROM SUPPLY_CHAIN_ONTOLOGY.CORE.VW_DAYS_OF_INVENTORY
+            GROUP BY PLANT_ID
+            ORDER BY DII DESC
+        """,
+
+        "Days of Inventory by Part Category": """
+            SELECT
+                PART_CATEGORY,
+                AVG(DII) AS DII
+            FROM SUPPLY_CHAIN_ONTOLOGY.CORE.VW_DAYS_OF_INVENTORY
+            GROUP BY PART_CATEGORY
+            ORDER BY DII DESC
+        """,
+
+        "Inventory On Hand by Plant": """
+            SELECT
+                PLANT_ID,
+                SUM(INVENTORY_ON_HAND) AS INVENTORY_ON_HAND
+            FROM SUPPLY_CHAIN_ONTOLOGY.CORE.VW_DAYS_OF_INVENTORY
+            GROUP BY PLANT_ID
+            ORDER BY INVENTORY_ON_HAND DESC
+        """,
+    },
+
+    "Procurement": {
+        "Inbound OTD by Supplier": """
+            SELECT
+                SUPPLIER_ID,
+                AVG(IS_ON_TIME) * 100 AS INBOUND_OTD_PCT
+            FROM SUPPLY_CHAIN_ONTOLOGY.CORE.VW_ON_TIME_DELIVERY_INBOUND
+            GROUP BY SUPPLIER_ID
+            ORDER BY INBOUND_OTD_PCT
+        """,
+
+        "Landed Cost by Supplier": """
+            SELECT
+                SUPPLIER_ID,
+                SUM(LANDED_COST) AS LANDED_COST
+            FROM SUPPLY_CHAIN_ONTOLOGY.CORE.VW_LANDED_COST
+            GROUP BY SUPPLIER_ID
+            ORDER BY LANDED_COST DESC
+        """,
+
+        "Landed Cost by Part": """
+            SELECT
+                PART_ID,
+                SUM(LANDED_COST) AS LANDED_COST
+            FROM SUPPLY_CHAIN_ONTOLOGY.CORE.VW_LANDED_COST
+            GROUP BY PART_ID
+            ORDER BY LANDED_COST DESC
+        """,
+
+        "Landed Cost Breakdown": """
+            SELECT
+                SUM(PURCHASE_COST) AS PURCHASE_COST,
+                SUM(FREIGHT_COST) AS FREIGHT_COST,
+                SUM(INSURANCE_COST) AS INSURANCE_COST,
+                SUM(CUSTOMS_COST) AS CUSTOMS_COST
+            FROM SUPPLY_CHAIN_ONTOLOGY.CORE.VW_LANDED_COST
+        """,
+
+        "Supplier Reliability vs Inbound OTD": """
+            SELECT
+                SUPPLIER_ID,
+                AVG(IS_ON_TIME) * 100 AS INBOUND_OTD_PCT,
+                COUNT(*) AS SHIPMENTS
+            FROM SUPPLY_CHAIN_ONTOLOGY.CORE.VW_ON_TIME_DELIVERY_INBOUND
+            GROUP BY SUPPLIER_ID
+            ORDER BY INBOUND_OTD_PCT
+        """,
+    },
+
+    "Logistics": {
+        "Outbound OTD Trend": """
+            SELECT
+                DELIVERY_MONTH,
+                AVG(IS_ON_TIME) * 100 AS OTD_PCT
+            FROM SUPPLY_CHAIN_ONTOLOGY.CORE.VW_ON_TIME_DELIVERY_OUTBOUND
+            GROUP BY DELIVERY_MONTH
+            ORDER BY DELIVERY_MONTH
+        """,
+
+        "OTD by Plant": """
+            SELECT
+                PLANT_ID,
+                AVG(IS_ON_TIME) * 100 AS OTD_PCT
+            FROM SUPPLY_CHAIN_ONTOLOGY.CORE.VW_ON_TIME_DELIVERY_OUTBOUND
+            GROUP BY PLANT_ID
+            ORDER BY OTD_PCT
+        """,
+
+        "OTD by Carrier": """
+            SELECT
+                CARRIER,
+                AVG(IS_ON_TIME) * 100 AS OTD_PCT
+            FROM SUPPLY_CHAIN_ONTOLOGY.CORE.VW_ON_TIME_DELIVERY_OUTBOUND
+            GROUP BY CARRIER
+            ORDER BY OTD_PCT
+        """,
+
+        "OTD by Mode": """
+            SELECT
+                TRANSPORT_MODE,
+                AVG(IS_ON_TIME) * 100 AS OTD_PCT
+            FROM SUPPLY_CHAIN_ONTOLOGY.CORE.VW_ON_TIME_DELIVERY_OUTBOUND
+            GROUP BY TRANSPORT_MODE
+            ORDER BY OTD_PCT
+        """,
+
+        "Late Shipments by Carrier": """
+            SELECT
+                CARRIER,
+                COUNT(*) AS LATE_SHIPMENTS
+            FROM SUPPLY_CHAIN_ONTOLOGY.CORE.VW_ON_TIME_DELIVERY_OUTBOUND
+            WHERE IS_ON_TIME = 0
+            GROUP BY CARRIER
+            ORDER BY LATE_SHIPMENTS DESC
+        """,
+
+        "Delivery Delay Distribution": """
+            SELECT
+                DELAY_DAYS,
+                COUNT(*) AS SHIPMENTS
+            FROM SUPPLY_CHAIN_ONTOLOGY.CORE.VW_ON_TIME_DELIVERY_OUTBOUND
+            GROUP BY DELAY_DAYS
+            ORDER BY DELAY_DAYS
+        """,
+    },
+}
+
+
+# ============================================================================
+# CHART HELPERS
+# ============================================================================
+
+def make_line_chart(
+    df: pd.DataFrame,
+    x_col: str,
+    y_col: str,
+    title: str,
+):
+    if df.empty or x_col not in df.columns or y_col not in df.columns:
+        st.info("No data available for this chart.")
+        return
+
+    chart = (
         alt.Chart(df)
-        .mark_line(
-            point=True,
-            color=color,
-            strokeWidth=2.5,
-        )
+        .mark_line(point=True)
         .encode(
-            x=alt.X(
-                f"{x}:N",
-                title=None,
-                axis=alt.Axis(labelAngle=-45),
-            ),
-            y=alt.Y(
-                f"{y}:Q",
-                scale=alt.Scale(domain=[lo, hi]),
-                title=y_title,
-            ),
-            tooltip=[x, y],
+            x=alt.X(x_col, title=None),
+            y=alt.Y(y_col, title=None),
+            tooltip=list(df.columns),
         )
-        .properties(height=240)
+        .properties(
+            title=title,
+            height=320,
+        )
+        .interactive()
     )
 
+    st.altair_chart(chart, width="stretch")
 
-def bar_chart(
+
+def make_bar_chart(
     df: pd.DataFrame,
-    x: str,
-    y: str,
-    color: str,
-    y_title: str,
-    horizontal: bool = True,
+    x_col: str,
+    y_col: str,
+    title: str,
+    horizontal: bool = False,
 ):
+    if df.empty or x_col not in df.columns or y_col not in df.columns:
+        st.info("No data available for this chart.")
+        return
+
     if horizontal:
-        enc = dict(
-            y=alt.Y(
-                f"{x}:N",
-                sort="-x",
-                title=None,
-            ),
-            x=alt.X(
-                f"{y}:Q",
-                title=y_title,
-            ),
+        chart = (
+            alt.Chart(df)
+            .mark_bar()
+            .encode(
+                x=alt.X(y_col, title=None),
+                y=alt.Y(
+                    x_col,
+                    sort="-x",
+                    title=None,
+                ),
+                tooltip=list(df.columns),
+            )
+            .properties(
+                title=title,
+                height=max(300, min(650, len(df) * 28)),
+            )
+            .interactive()
         )
     else:
-        enc = dict(
-            x=alt.X(
-                f"{x}:N",
-                sort="-y",
-                title=None,
-            ),
-            y=alt.Y(
-                f"{y}:Q",
-                title=y_title,
-            ),
+        chart = (
+            alt.Chart(df)
+            .mark_bar()
+            .encode(
+                x=alt.X(x_col, title=None),
+                y=alt.Y(y_col, title=None),
+                tooltip=list(df.columns),
+            )
+            .properties(
+                title=title,
+                height=320,
+            )
+            .interactive()
         )
 
-    return (
-        alt.Chart(df)
-        .mark_bar(
-            color=color,
-            cornerRadius=3,
-        )
-        .encode(
-            tooltip=[x, y],
-            **enc,
-        )
-        .properties(height=260)
-    )
+    st.altair_chart(chart, width="stretch")
 
 
-def scatter_chart(
+def make_scatter_chart(
     df: pd.DataFrame,
-    x: str,
-    y: str,
-    color: str,
-    y_title: str,
+    x_col: str,
+    y_col: str,
+    title: str,
 ):
-    return (
+    if df.empty or x_col not in df.columns or y_col not in df.columns:
+        st.info("No data available for this chart.")
+        return
+
+    chart = (
         alt.Chart(df)
-        .mark_circle(
-            size=90,
-            color=color,
-            opacity=0.7,
-        )
+        .mark_circle(size=100)
         .encode(
-            x=alt.X(
-                f"{x}:Q",
-                title=x.replace("_", " ").title(),
-            ),
-            y=alt.Y(
-                f"{y}:Q",
-                title=y_title,
-            ),
-            tooltip=[x, y],
+            x=alt.X(x_col, title=None),
+            y=alt.Y(y_col, title=None),
+            tooltip=list(df.columns),
         )
-        .properties(height=260)
+        .properties(
+            title=title,
+            height=350,
+        )
+        .interactive()
     )
 
+    st.altair_chart(chart, width="stretch")
 
-def render_persona_chart(spec, idx: int = 0) -> None:
-    title, sql, kind, x, y, color = spec
 
-    with st.container(
-        key=f"chartcard_{idx}",
-        border=True,
-    ):
-        st.markdown(
-            f'<div class="chart-card-title">{title}</div>',
-            unsafe_allow_html=True,
+# ============================================================================
+# PERSONA DASHBOARD CHART RENDERING
+# ============================================================================
+
+def render_persona_chart(title: str, sql: str):
+    df = load_df(sql)
+
+    if df.empty:
+        st.info(f"No data available for **{title}**.")
+        return
+
+    cols = list(df.columns)
+
+    if len(cols) < 2:
+        st.dataframe(df, width="stretch", hide_index=True)
+        return
+
+    numeric_cols = df.select_dtypes(
+        include=["number"]
+    ).columns.tolist()
+
+    if not numeric_cols:
+        st.dataframe(df, width="stretch", hide_index=True)
+        return
+
+    y_col = numeric_cols[-1]
+    x_col = cols[0]
+
+    lower_title = title.lower()
+
+    if "trend" in lower_title:
+        make_line_chart(
+            df,
+            x_col,
+            y_col,
+            title,
         )
 
-        df = load_df(sql)
-
-        if df.empty:
-            st.caption("No data.")
-            return
-
-        if kind == "line":
-            st.altair_chart(
-                line_chart(df, x, y, color, y),
-                width="stretch",
+    elif "scatter" in lower_title or "reliability" in lower_title:
+        if len(numeric_cols) >= 2:
+            make_scatter_chart(
+                df,
+                numeric_cols[0],
+                numeric_cols[1],
+                title,
+            )
+        else:
+            make_bar_chart(
+                df,
+                x_col,
+                y_col,
+                title,
+                horizontal=True,
             )
 
-        elif kind == "bar":
-            st.altair_chart(
-                bar_chart(
-                    df,
-                    x,
-                    y,
-                    color,
-                    y,
-                    horizontal=True,
-                ),
-                width="stretch",
-            )
-
-        elif kind == "bar_v":
-            st.altair_chart(
-                bar_chart(
-                    df,
-                    x,
-                    y,
-                    color,
-                    y,
-                    horizontal=False,
-                ),
-                width="stretch",
-            )
-
-        elif kind == "scatter":
-            st.altair_chart(
-                scatter_chart(
-                    df,
-                    x,
-                    y,
-                    color,
-                    y,
-                ),
-                width="stretch",
-            )
-
-        elif kind == "components":
-            comp = pd.DataFrame(
+    elif "breakdown" in lower_title:
+        # Convert one-row cost breakdown into a long format.
+        if len(df) == 1:
+            row = df.iloc[0]
+            chart_df = pd.DataFrame(
                 {
-                    "Component": [
-                        "Product",
-                        "Freight",
-                        "Insurance",
-                        "Customs",
-                    ],
-                    "USD": [
-                        df.iloc[0]["PRODUCT"],
-                        df.iloc[0]["FREIGHT"],
-                        df.iloc[0]["INSURANCE"],
-                        df.iloc[0]["CUSTOMS"],
+                    "CATEGORY": list(df.columns),
+                    "VALUE": [
+                        row[col]
+                        for col in df.columns
                     ],
                 }
             )
 
-            st.altair_chart(
-                bar_chart(
-                    comp,
-                    "Component",
-                    "USD",
-                    color,
-                    "Total USD",
-                ),
-                width="stretch",
+            make_bar_chart(
+                chart_df,
+                "CATEGORY",
+                "VALUE",
+                title,
+                horizontal=True,
             )
+        else:
+            st.dataframe(
+                df,
+                width="stretch",
+                hide_index=True,
+            )
+
+    else:
+        make_bar_chart(
+            df,
+            x_col,
+            y_col,
+            title,
+            horizontal=True,
+        )
+
+
+# ============================================================================
+# ONTOLOGY LOADERS
+# ============================================================================
+
+@st.cache_data(ttl=300)
+def load_ontology_entities() -> pd.DataFrame:
+    return load_df(
+        """
+        SELECT *
+        FROM SUPPLY_CHAIN_ONTOLOGY.CORE.V_ONTOLOGY_ENTITIES
+        ORDER BY DISPLAY_NAME
+        """
+    )
+
+
+@st.cache_data(ttl=300)
+def load_ontology_graph() -> pd.DataFrame:
+    return load_df(
+        """
+        SELECT *
+        FROM SUPPLY_CHAIN_ONTOLOGY.CORE.V_ONTOLOGY_GRAPH
+        """
+    )
+
+
+@st.cache_data(ttl=300)
+def load_ontology_attributes() -> pd.DataFrame:
+    return load_df(
+        """
+        SELECT *
+        FROM SUPPLY_CHAIN_ONTOLOGY.CORE.V_ONTOLOGY_ATTRIBUTES
+        ORDER BY ENTITY_ID, DISPLAY_NAME
+        """
+    )
+
+
+@st.cache_data(ttl=300)
+def load_entity_metrics() -> pd.DataFrame:
+    return load_df(
+        """
+        SELECT *
+        FROM SUPPLY_CHAIN_ONTOLOGY.CORE.V_ONTOLOGY_ENTITY_METRICS
+        ORDER BY ENTITY_ID, DISPLAY_NAME
+        """
+    )
+
+
+@st.cache_data(ttl=300)
+def load_metric_catalog() -> pd.DataFrame:
+    return load_df(
+        """
+        SELECT *
+        FROM SUPPLY_CHAIN_ONTOLOGY.CORE.DIM_METRIC_CATALOG
+        ORDER BY METRIC_NAME
+        """
+    )
 
 
 # ============================================================================
 # CHAT HELPERS
 # ============================================================================
-def _rows_as_dicts(
-    cols: list[str],
-    rows: list[list],
-) -> list[dict]:
-    return [
-        dict(zip(cols, r))
-        for r in rows
-    ]
+
+def _rows_as_dicts(value):
+    if value is None:
+        return []
+
+    if isinstance(value, pd.DataFrame):
+        return value.to_dict("records")
+
+    if isinstance(value, list):
+        return value
+
+    if isinstance(value, dict):
+        if "rows" in value:
+            return value["rows"]
+
+        if "data" in value:
+            return value["data"]
+
+        return [value]
+
+    return []
 
 
 def _payload_text(payload) -> str:
-    """Extract plain text from a thread message payload."""
-    try:
-        obj = (
-            json.loads(payload)
-            if isinstance(payload, str)
-            else payload
-        )
-    except (json.JSONDecodeError, TypeError):
-        return str(payload)
+    """
+    Best-effort extraction of displayable text from Cortex responses.
+    """
 
-    if isinstance(obj, dict):
-        texts = [
-            c.get("text", "")
-            for c in obj.get("content", [])
-            if c.get("type") == "text"
-        ]
+    if payload is None:
+        return ""
 
-        joined = " ".join(
-            t for t in texts if t
-        ).strip()
+    if isinstance(payload, str):
+        return payload
 
-        return joined or ""
+    if isinstance(payload, dict):
 
-    return str(payload)
-
-
-@st.cache_data(ttl=600, show_spinner=False)
-def thread_title(thread_id: int) -> str:
-    """Title for an unnamed thread."""
-    try:
-        for m in get_thread_messages(
-            thread_id,
-            page_size=20,
+        for key in (
+            "text",
+            "content",
+            "message",
+            "response",
+            "answer",
         ):
-            if m.get("role") == "user":
-                text = _payload_text(
-                    m.get("message_payload")
-                ).strip()
+            value = payload.get(key)
 
-                if text:
-                    return (
-                        text[:48]
-                        + ("…" if len(text) > 48 else "")
-                    )
+            if isinstance(value, str):
+                return value
 
-    except Exception:
-        pass
+            if isinstance(value, list):
+                pieces = []
 
-    return "Untitled conversation"
+                for item in value:
+                    if isinstance(item, str):
+                        pieces.append(item)
+                    elif isinstance(item, dict):
+                        text = item.get("text")
 
+                        if text:
+                            pieces.append(str(text))
 
-def restore_thread(thread_id: int) -> None:
-    """Load a previous thread into the chat."""
-    msgs = get_thread_messages(thread_id)
+                if pieces:
+                    return "".join(pieces)
 
-    chat = []
-    last_assistant_id = 0
+        return ""
 
-    for m in msgs:
-        role = m.get("role")
-        payload = m.get("message_payload")
+    if isinstance(payload, list):
+        pieces = []
 
-        if role == "user":
-            text = _payload_text(payload)
+        for item in payload:
+            text = _payload_text(item)
 
             if text:
-                chat.append(
+                pieces.append(text)
+
+        return "".join(pieces)
+
+    return ""
+
+
+def thread_title(prompt: str) -> str:
+    clean = " ".join(prompt.split())
+
+    if len(clean) <= 48:
+        return clean
+
+    return clean[:45].rstrip() + "..."
+
+
+def restore_thread(thread_id: str):
+    """
+    Restore an existing Cortex Agent thread into the local chat state.
+    """
+
+    try:
+        messages = get_thread_messages(thread_id)
+
+        restored = []
+
+        for message in messages or []:
+            role = message.get("role")
+
+            if role not in {"user", "assistant"}:
+                continue
+
+            content = message.get("content")
+
+            text = _payload_text(content)
+
+            if not text:
+                text = _payload_text(message)
+
+            if text:
+                restored.append(
                     {
-                        "role": "user",
+                        "role": role,
                         "content": text,
                     }
                 )
 
-        elif role == "assistant":
-            res = AgentResult()
+        st.session_state.chat_messages = restored
+        st.session_state.thread_id = thread_id
+        st.session_state.parent_message_id = None
 
-            try:
-                obj = (
-                    json.loads(payload)
-                    if isinstance(payload, str)
-                    else payload
-                )
-
-                _extract_from_response_payload(
-                    obj,
-                    res,
-                )
-
-            except (json.JSONDecodeError, TypeError):
-                res.answer_text = _payload_text(
-                    payload
-                )
-
-            chat.append(
-                {
-                    "role": "assistant",
-                    "result": res,
-                    "question": None,
-                }
-            )
-
-            if m.get("message_id"):
-                last_assistant_id = m["message_id"]
-
-    st.session_state.chat_messages = chat
-    st.session_state.thread_id = thread_id
-    st.session_state.parent_message_id = last_assistant_id
+    except Exception as exc:
+        st.error(f"Unable to restore conversation: {exc}")
 
 
 def submit_question(prompt: str) -> None:
-    """Queue a question for streaming."""
+    """
+    Queue a question for Cortex Agent streaming.
+    """
+
     st.session_state.chat_messages.append(
         {
             "role": "user",
@@ -1537,468 +941,241 @@ def finalize_answer(
     prompt: str,
     result: AgentResult,
 ) -> None:
-    """Finalize the streamed answer."""
-    if result.assistant_message_id is not None:
-        st.session_state.parent_message_id = (
-            result.assistant_message_id
-        )
+    """
+    Finalize the assistant response after streaming completes.
+    """
 
-    if (
-        st.session_state.get("just_created_thread")
-        and st.session_state.thread_id
-    ):
-        try:
-            set_thread_name(
-                st.session_state.thread_id,
-                prompt,
-            )
-        except Exception:
-            pass
+    text = ""
 
-        st.session_state.just_created_thread = False
+    if result is not None:
+
+        if isinstance(result, dict):
+            text = _payload_text(result)
+
+        else:
+            for attr in (
+                "text",
+                "content",
+                "response",
+                "answer",
+            ):
+                value = getattr(
+                    result,
+                    attr,
+                    None,
+                )
+
+                if isinstance(value, str) and value.strip():
+                    text = value
+                    break
+
+    if not text:
+        text = "I couldn't generate a response."
 
     st.session_state.chat_messages.append(
         {
             "role": "assistant",
-            "result": result,
-            "question": prompt,
+            "content": text,
         }
     )
 
-
-# ============================================================================
-# ONTOLOGY LOADERS
-# ============================================================================
-@st.cache_data(ttl=600, show_spinner=False)
-def load_ontology_entities() -> list[dict]:
-    cols, rows = run_sql(
-        """
-        SELECT
-            entity_id,
-            display_name,
-            entity_type,
-            description,
-            source_object,
-            business_domain
-        FROM V_ONTOLOGY_ENTITIES
-        WHERE is_active = 'true'
-        ORDER BY entity_type, display_name
-        """
-    )
-
-    return _rows_as_dicts(cols, rows)
-
-
-@st.cache_data(ttl=600, show_spinner=False)
-def load_ontology_graph() -> list[dict]:
-    cols, rows = run_sql(
-        """
-        SELECT
-            source_id,
-            source_name,
-            edge_label,
-            target_id,
-            target_name,
-            relationship_type,
-            cardinality
-        FROM V_ONTOLOGY_GRAPH
-        """
-    )
-
-    return _rows_as_dicts(cols, rows)
-
-
-@st.cache_data(ttl=600, show_spinner=False)
-def load_ontology_attributes(
-    entity_id: str,
-) -> list[dict]:
-    safe = entity_id.replace("'", "''")
-
-    cols, rows = run_sql(
-        """
-        SELECT
-            attribute_name,
-            display_name,
-            data_type,
-            is_key,
-            is_foreign_key
-        FROM V_ONTOLOGY_ATTRIBUTES
-        WHERE entity_id = '"""
-        + safe
-        + """'
-        AND is_active = 'true'
-        """
-    )
-
-    return _rows_as_dicts(cols, rows)
-
-
-@st.cache_data(ttl=600, show_spinner=False)
-def load_entity_metrics(
-    entity_id: str,
-) -> list[dict]:
-    safe = entity_id.replace("'", "''")
-
-    cols, rows = run_sql(
-        """
-        SELECT
-            metric_name,
-            definition,
-            canonical_object,
-            role
-        FROM V_ONTOLOGY_ENTITY_METRICS
-        WHERE entity_id = '"""
-        + safe
-        + """'
-        """
-    )
-
-    return _rows_as_dicts(cols, rows)
-
-
-@st.cache_data(ttl=600, show_spinner=False)
-def load_metric_catalog() -> list[dict]:
-    cols, rows = run_sql(
-        """
-        SELECT
-            display_name,
-            description,
-            definition,
-            grain,
-            canonical_object,
-            business_domain
-        FROM V_ONTOLOGY_METRICS
-        WHERE is_active = 'true'
-        ORDER BY display_name
-        """
-    )
-
-    return _rows_as_dicts(cols, rows)
+    st.session_state.pending_question = None
 
 
 # ============================================================================
-# CHAT AUTOSCROLL
+# CHAT RENDERING
 # ============================================================================
-def _autoscroll_chat(nonce: int) -> None:
-    """Keep the fixed-height message pane scrolled to the bottom."""
-    st.html(
-        f"""
-        <script>
-        (function() {{
-            const nonce = {nonce};
 
-            function scroll() {{
-                const el = document.querySelector(
-                    '.st-key-msg_scroll'
-                );
-
-                if (!el) return;
-
-                el.scrollTop = el.scrollHeight;
-
-                el.querySelectorAll('*').forEach(c => {{
-                    if (c.scrollHeight > c.clientHeight) {{
-                        c.scrollTop = c.scrollHeight;
-                    }}
-                }});
-            }}
-
-            scroll();
-            setTimeout(scroll, 100);
-            setTimeout(scroll, 400);
-        }})();
-        </script>
-        """,
-        unsafe_allow_javascript=True,
-    )
-
-
-def render_user(text: str) -> None:
+def render_user(content: str):
     st.markdown(
-        f'<div class="user-row">'
-        f'<div class="user-bubble">{text}</div>'
-        f'</div>',
+        f"""
+        <div class="chat-message-user">
+            <div class="message-role">You</div>
+            {content}
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
 
-def render_assistant(res: AgentResult) -> None:
-    if res.error:
-        st.error(res.error)
-        return
+def render_assistant(content: str):
+    st.markdown(
+        f"""
+        <div class="chat-message-assistant">
+            <div class="message-role">Supply Chain Copilot</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    if res.tools_used:
-        tools = "".join(
-            f'<div class="trace-step">'
-            f'<span class="trace-check">✓</span>'
-            f'Used tool → <code>{t}</code>'
-            f'</div>'
-            for t in res.tools_used
-        )
+    st.markdown(content)
 
-        st.markdown(
-            '<div class="trace-box">'
-            '<div class="trace-head">'
-            '✨ <span class="title">Agent trace</span>'
-            f'<span class="meta">· {len(res.tools_used)} tool(s)</span>'
-            '</div>'
-            f'<div class="trace-body">{tools}</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
 
-    if res.answer_text:
-        st.markdown(res.answer_text)
+def _autoscroll_chat():
+    st.markdown(
+        """
+        <script>
+        setTimeout(function() {
+            const elements =
+                window.parent.document.querySelectorAll(
+                    '[data-testid="stVerticalScroll"]'
+                );
 
-    if getattr(res, "chart_spec", None):
-        st.vega_lite_chart(
-            res.chart_spec,
-            width="stretch",
-        )
-
-    if res.result_rows and res.column_names:
-        df = pd.DataFrame(
-            res.result_rows,
-            columns=res.column_names,
-        )
-
-        st.dataframe(
-            df,
-            width="stretch",
-            hide_index=True,
-        )
+            if (elements.length > 0) {
+                const el = elements[elements.length - 1];
+                el.scrollTop = el.scrollHeight;
+            }
+        }, 100);
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 # ============================================================================
 # SIDEBAR
 # ============================================================================
+
 with st.sidebar:
-    st.markdown(
-        '<div class="brand-container">'
-        '<div class="brand-logo">SC</div>'
-        'Supply chain copilot'
-        '</div>',
-        unsafe_allow_html=True,
-    )
-
-    if st.button(
-        "+ New chat",
-        key="new_chat",
-        width="stretch",
-    ):
-        st.session_state.chat_messages = []
-        st.session_state.thread_id = None
-        st.session_state.parent_message_id = 0
-        st.session_state.active_view = "Chat"
-        st.rerun()
 
     st.markdown(
-        '<div class="nav-group">Navigation</div>',
-        unsafe_allow_html=True,
+        "## 🔗 Supply Chain Copilot"
     )
 
-    view_icons = {
-        "Dashboard": ":material/dashboard: Dashboard",
-        "Chat": ":material/chat: Chat",
-        "Ontology explorer": ":material/account_tree: Ontology explorer",
-    }
+    st.caption(
+        "Governed conversational analytics"
+    )
 
-    views = [
+    st.divider()
+
+    st.markdown("### Navigation")
+
+    nav_options = [
         "Dashboard",
         "Chat",
-        "Ontology explorer",
+        "Ontology",
     ]
 
-    cur = (
-        st.session_state.active_view
-        if st.session_state.active_view in views
-        else "Chat"
-    )
-
-    view = st.radio(
-        "View",
-        views,
-        index=views.index(cur),
-        format_func=lambda v: view_icons[v],
+    selected_view = st.radio(
+        "Navigation",
+        nav_options,
+        index=nav_options.index(
+            st.session_state.active_view
+        ),
         label_visibility="collapsed",
-        key="nav_radio",
     )
 
-    if view != st.session_state.active_view:
-        st.session_state.active_view = view
-        st.rerun()
+    if selected_view != st.session_state.active_view:
+        st.session_state.active_view = selected_view
 
-    if st.session_state.active_view != "Ontology explorer":
-        st.markdown(
-            '<div class="nav-group">Viewing as</div>',
-            unsafe_allow_html=True,
-        )
-
-        persona_icons = {
-            "Planning": ":material/bar_chart: Planning",
-            "Procurement": ":material/shopping_cart: Procurement",
-            "Logistics": ":material/local_shipping: Logistics",
-        }
-
-        personas = [
-            "Planning",
-            "Procurement",
-            "Logistics",
-        ]
-
-        persona = st.radio(
-            "Viewing as",
-            personas,
-            index=personas.index(
-                st.session_state.active_persona
-            ),
-            format_func=lambda p: persona_icons[p],
-            label_visibility="collapsed",
-            key="persona_radio",
-        )
-
-        if (
-            persona
-            and persona != st.session_state.active_persona
-        ):
-            st.session_state.active_persona = persona
-            st.rerun()
+    st.divider()
 
     st.markdown(
-        '<div class="nav-group">Conversations</div>',
+        '<div class="persona-caption">VIEWING AS</div>',
         unsafe_allow_html=True,
     )
+
+    persona = st.selectbox(
+        "Persona",
+        list(PERSONAS.keys()),
+        index=list(PERSONAS.keys()).index(
+            st.session_state.active_persona
+        ),
+        label_visibility="collapsed",
+    )
+
+    if persona != st.session_state.active_persona:
+        st.session_state.active_persona = persona
+
+    persona_info = PERSONAS[persona]
+
+    st.caption(
+        f'{persona_info["icon"]} {persona_info["description"]}'
+    )
+
+    st.divider()
+
+    # ------------------------------------------------------------------------
+    # Conversations
+    # ------------------------------------------------------------------------
+
+    st.markdown("### Conversations")
+
+    if st.button(
+        "＋ New conversation",
+        width="stretch",
+    ):
+        try:
+            thread = create_thread()
+
+            if isinstance(thread, dict):
+                thread_id = (
+                    thread.get("thread_id")
+                    or thread.get("id")
+                )
+            else:
+                thread_id = thread
+
+            st.session_state.thread_id = thread_id
+
+        except Exception:
+            st.session_state.thread_id = None
+
+        st.session_state.parent_message_id = None
+        st.session_state.chat_messages = []
+        st.session_state.pending_question = None
+        st.rerun()
 
     try:
         threads = list_threads()
-    except Exception:
-        threads = []
 
-    if not threads:
-        st.markdown(
-            '<div class="hist-empty">'
-            'No past conversations yet'
-            '</div>',
-            unsafe_allow_html=True,
-        )
+        if threads:
 
-    for t in threads:
-        tid = t.get("thread_id")
-        name = (
-            t.get("thread_name")
-            or thread_title(tid)
-        )
+            for thread in threads[:20]:
 
-        is_active = (
-            tid == st.session_state.thread_id
-        )
+                if not isinstance(thread, dict):
+                    continue
 
-        btn_key = (
-            "hist_active"
-            if is_active
-            else f"hist_{tid}"
-        )
+                tid = (
+                    thread.get("thread_id")
+                    or thread.get("id")
+                )
 
-        c_open, c_del = st.columns(
-            [5, 1],
-            gap="small",
-            vertical_alignment="center",
-        )
+                title = (
+                    thread.get("name")
+                    or thread.get("title")
+                    or "Conversation"
+                )
 
-        with c_open:
-            if st.button(
-                name,
-                key=btn_key,
-                width="stretch",
-            ):
-                with st.spinner(
-                    "Loading conversation…"
+                if not tid:
+                    continue
+
+                if st.button(
+                    str(title),
+                    key=f"thread_{tid}",
+                    width="stretch",
                 ):
                     restore_thread(tid)
+                    st.session_state.active_view = "Chat"
+                    st.rerun()
 
-                st.session_state.active_view = "Chat"
-                st.rerun()
-
-        with c_del:
-            if st.button(
-                "🗑",
-                key=f"del_{tid}",
-                help="Delete conversation",
-            ):
-                try:
-                    delete_thread(tid)
-                except Exception:
-                    pass
-
-                if is_active:
-                    st.session_state.chat_messages = []
-                    st.session_state.thread_id = None
-                    st.session_state.parent_message_id = 0
-
-                st.rerun()
+    except Exception:
+        st.caption("No saved conversations available.")
 
 
 # ============================================================================
-# PERSONA ACCENT THEMING
+# PERSONA CSS ACCENT
 # ============================================================================
-_pc = PERSONA_CONFIG.get(
-    st.session_state.active_persona,
-    PERSONA_CONFIG["Planning"],
-)
 
-_A = _pc["accent"]
-_AD = _pc["accent_dark"]
-_AS = _pc["accent_soft"]
-_AH = _pc["accent_hover"]
+persona_color = PERSONAS[
+    st.session_state.active_persona
+]["color"]
 
 st.markdown(
     f"""
     <style>
-    .brand-logo {{
-        background: {_A} !important;
-    }}
-
-    [data-testid="stSidebar"]
-    [role="radiogroup"]
-    label:has(input:checked) {{
-        background: {_AS} !important;
-    }}
-
-    [data-testid="stSidebar"]
-    [role="radiogroup"]
-    label:has(input:checked) p {{
-        color: {_A} !important;
-    }}
-
-    .st-key-new_chat button {{
-        color: {_A} !important;
-        border-color: {_A} !important;
-    }}
-
-    .st-key-new_chat button:hover {{
-        background: {_AH} !important;
-        color: {_AD} !important;
-        border-color: {_AD} !important;
-    }}
-
-    [data-testid="stSidebar"]
-    .st-key-hist_active button {{
-        background: {_AS} !important;
-        color: {_A} !important;
-    }}
-
-    .user-bubble {{
-        background: {_A} !important;
-    }}
-
-    .st-key-composer_bar {{
-        border: 1.5px solid {_A} !important;
-        box-shadow: 0 2px 10px {_AS} !important;
-    }}
-
-    a,
-    a:visited {{
-        color: {_A} !important;
+    .persona-accent {{
+        color: {persona_color};
     }}
     </style>
     """,
@@ -2009,527 +1186,1080 @@ st.markdown(
 # ============================================================================
 # DASHBOARD VIEW
 # ============================================================================
+
 if st.session_state.active_view == "Dashboard":
+
     persona = st.session_state.active_persona
 
-    specs = PERSONA_DASHBOARD_QUERIES.get(
-        persona,
-        PERSONA_DASHBOARD_QUERIES["Planning"],
-    )
-
-    with st.spinner("Loading dashboard…"):
-        kpis, kpi_errors = load_kpis()
-
-    order = PERSONA_CONFIG.get(
-        persona,
-        PERSONA_CONFIG["Planning"],
-    )["kpi_order"]
-
-    ordered_ids = (
-        [m for m in order if m in kpis]
-        + [m for m in kpis if m not in order]
-    )
-
-    kpi_cols = st.columns(
-        len(ordered_ids) or 1
-    )
-
-    for col, mid in zip(
-        kpi_cols,
-        ordered_ids,
-    ):
-        m = kpis[mid]
-
-        with col:
-            st.markdown(
-                f'<div class="kpi-inner" '
-                f'style="border-left-color:{m["color"]};">'
-                f'<div class="label">{m["name"]}</div>'
-                f'<div class="value">{m["value"]}</div>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-
-    if kpi_errors:
-        with st.expander(
-            "⚠ KPI load errors"
-        ):
-            for err in kpi_errors:
-                st.write(err)
-
     st.markdown(
-        '<div class="band-rule"></div>',
+        '<div class="dashboard-title">Supply Chain Dashboard</div>',
         unsafe_allow_html=True,
     )
 
     st.markdown(
-        f'<div class="dash-heading">'
-        f'📊 {persona} Reports &amp; Analytics'
-        f'</div>',
+        f"""
+        <div class="dashboard-subtitle">
+            {PERSONAS[persona]["icon"]}
+            {persona} perspective · governed supply-chain metrics
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
-    for i in range(
-        0,
-        len(specs),
-        2,
-    ):
-        left, right = st.columns(
-            2,
-            gap="medium",
+    # ------------------------------------------------------------------------
+    # KPI cards
+    # ------------------------------------------------------------------------
+
+    kpis = load_kpis()
+
+    if kpis.empty:
+
+        st.info(
+            "No KPI snapshot is currently available."
         )
 
-        with left:
-            render_persona_chart(
-                specs[i],
-                idx=i,
+    else:
+
+        # Display up to six KPIs.
+        kpi_count = min(len(kpis), 6)
+
+        columns = st.columns(
+            kpi_count
+        )
+
+        for idx in range(kpi_count):
+
+            row = kpis.iloc[idx]
+
+            metric_name = row.get(
+                "METRIC_NAME",
+                "Metric",
             )
 
-        if i + 1 < len(specs):
-            with right:
-                render_persona_chart(
-                    specs[i + 1],
-                    idx=i + 1,
+            metric_value = format_kpi_value(
+                row.get("METRIC_VALUE"),
+                row.get("UNIT"),
+            )
+
+            with columns[idx]:
+
+                st.markdown(
+                    f"""
+                    <div class="kpi-card">
+                        <div class="kpi-label">
+                            {metric_name}
+                        </div>
+                        <div class="kpi-value">
+                            {metric_value}
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
                 )
+
+    st.divider()
+
+    # ------------------------------------------------------------------------
+    # Persona dashboard
+    # ------------------------------------------------------------------------
+
+    queries = DASHBOARD_QUERIES.get(
+        persona,
+        {},
+    )
+
+    if not queries:
+
+        st.info(
+            f"No dashboard configuration exists for {persona}."
+        )
+
+    else:
+
+        chart_items = list(
+            queries.items()
+        )
+
+        for i in range(
+            0,
+            len(chart_items),
+            2,
+        ):
+
+            row_items = chart_items[
+                i:i + 2
+            ]
+
+            cols = st.columns(
+                len(row_items)
+            )
+
+            for col, (
+                title,
+                sql,
+            ) in zip(
+                cols,
+                row_items,
+            ):
+
+                with col:
+
+                    st.markdown(
+                        f"#### {title}"
+                    )
+
+                    render_persona_chart(
+                        title,
+                        sql,
+                    )
 
 
 # ============================================================================
 # CHAT VIEW
 # ============================================================================
-elif st.session_state.active_view == "Chat":
-    main = st.container(
-        key="main_row"
+
+if st.session_state.active_view == "Chat":
+
+    st.markdown(
+        '<div class="chat-header">Supply Chain Copilot</div>',
+        unsafe_allow_html=True,
     )
 
-    with main:
-        col_chat = st.container()
+    st.markdown(
+        f"""
+        <div class="chat-subtitle">
+            {PERSONAS[st.session_state.active_persona]["icon"]}
+            {st.session_state.active_persona} ·
+            Ask questions about suppliers, plants, orders,
+            inventory, shipments and governed metrics.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-        with col_chat:
-            if not st.session_state.chat_messages:
-                st.markdown(
-                    '<div class="empty-greeting">'
-                    '<span class="big">'
-                    'How can I help with your supply chain?'
-                    '</span>'
-                    'Ask about suppliers, plants, orders, inventory…'
-                    '</div>',
-                    unsafe_allow_html=True,
+    # ------------------------------------------------------------------------
+    # Chat history
+    # ------------------------------------------------------------------------
+
+    chat_container = st.container(
+        height=540,
+        border=False,
+    )
+
+    with chat_container:
+
+        for message in st.session_state.chat_messages:
+
+            role = message.get("role")
+            content = message.get(
+                "content",
+                "",
+            )
+
+            if role == "user":
+                render_user(content)
+
+            elif role == "assistant":
+                render_assistant(content)
+
+    # ------------------------------------------------------------------------
+    # Pending question / Cortex streaming
+    # ------------------------------------------------------------------------
+
+    pending = st.session_state.get(
+        "pending_question"
+    )
+
+    if pending:
+
+        contextual = (
+            f"Current persona: "
+            f"{st.session_state.active_persona}\n\n"
+            f"User question: {pending}"
+        )
+
+        with chat_container:
+
+            st.markdown(
+                """
+                <div class="chat-message-assistant">
+                    <div class="message-role">
+                        Supply Chain Copilot
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            try:
+
+                gen = ask_agent_stream(
+                    contextual,
+                    thread_id=st.session_state.thread_id,
+                    parent_message_id=(
+                        st.session_state.parent_message_id
+                    ),
                 )
 
-            else:
-                with st.container(
-                    height=640,
-                    key="msg_scroll",
-                ):
-                    for msg in st.session_state.chat_messages:
-                        if msg["role"] == "user":
-                            render_user(
-                                msg["content"]
-                            )
-                        else:
-                            render_assistant(
-                                msg["result"]
-                            )
+                st.write_stream(gen)
 
-                    # Stream queued question.
-                    pending = st.session_state.get(
-                        "pending_question"
-                    )
-
-                    if pending:
-                        st.session_state.pending_question = None
-
-                        if st.session_state.thread_id is None:
-                            try:
-                                st.session_state.thread_id = (
-                                    create_thread()
-                                )
-                                st.session_state.parent_message_id = 0
-                                st.session_state.just_created_thread = True
-
-                            except Exception:
-                                st.session_state.thread_id = None
-
-                        persona = (
-                            st.session_state.active_persona
-                        )
-
-                        contextual = (
-                            f"The user is viewing the supply chain "
-                            f"as the {persona} persona. "
-                            f"Frame the answer for that role.\n\n"
-                            f"User question:\n{pending}"
-                        )
-
-                        gen = ask_agent_stream(
-                            contextual,
-                            thread_id=st.session_state.thread_id,
-                            parent_message_id=st.session_state.parent_message_id,
-                        )
-
-                        st.write_stream(gen)
-
-                        result = getattr(
-                            ask_agent_stream,
-                            "result",
-                            AgentResult(),
-                        )
-
-                        finalize_answer(
-                            pending,
-                            result,
-                        )
-
-                        st.rerun()
-
-                st.markdown(
-                    '<div id="chat-scroll-anchor"></div>',
-                    unsafe_allow_html=True,
+                # ask_agent_stream stores the final AgentResult
+                # on the function object.
+                result = getattr(
+                    ask_agent_stream,
+                    "result",
+                    AgentResult(),
                 )
 
-                _autoscroll_chat(
-                    len(st.session_state.chat_messages)
+                finalize_answer(
+                    pending,
+                    result,
                 )
+
+            except Exception as exc:
+
+                st.session_state.chat_messages.append(
+                    {
+                        "role": "assistant",
+                        "content": (
+                            "I encountered an error while "
+                            f"processing your request:\n\n"
+                            f"`{exc}`"
+                        ),
+                    }
+                )
+
+                st.session_state.pending_question = None
+
+        st.rerun()
+
+    _autoscroll_chat()
 
 
 # ============================================================================
 # ONTOLOGY VIEW
 # ============================================================================
-else:
-    try:
-        entities = load_ontology_entities()
-        graph = load_ontology_graph()
 
-    except Exception as e:
-        entities, graph = [], []
-        st.error(
-            f"Could not load ontology metadata: {e}"
+if st.session_state.active_view == "Ontology":
+
+    st.markdown(
+        '<div class="ontology-title">🔗 Ontology Explorer</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        """
+        <div class="ontology-subtitle">
+            Explore governed business entities, relationships,
+            attributes and canonical metrics across the supply-chain
+            semantic layer.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    entities = load_ontology_entities()
+    graph = load_ontology_graph()
+    attributes = load_ontology_attributes()
+    entity_metrics = load_entity_metrics()
+    metrics = load_metric_catalog()
+
+    # ------------------------------------------------------------------------
+    # Normalize
+    # ------------------------------------------------------------------------
+
+    for df in (
+        entities,
+        graph,
+        attributes,
+        entity_metrics,
+        metrics,
+    ):
+        if not df.empty:
+            df.columns = [
+                str(c).upper()
+                for c in df.columns
+            ]
+
+    # ------------------------------------------------------------------------
+    # Filters
+    # ------------------------------------------------------------------------
+
+    c1, c2, c3 = st.columns(
+        [2, 1, 1]
+    )
+
+    with c1:
+
+        search = st.text_input(
+            "Search ontology",
+            placeholder=(
+                "Supplier, Product, Landed Cost..."
+            ),
+        ).strip().lower()
+
+    with c2:
+
+        if (
+            not entities.empty
+            and "ENTITY_TYPE" in entities.columns
+        ):
+
+            types = [
+                "All"
+            ] + sorted(
+                entities[
+                    "ENTITY_TYPE"
+                ]
+                .dropna()
+                .astype(str)
+                .unique()
+                .tolist()
+            )
+
+        else:
+            types = ["All"]
+
+        entity_type = st.selectbox(
+            "Entity type",
+            types,
         )
 
-    ENTITY_TYPE_COLOR = {
-        "MASTER": "#378ADD",
-        "REFERENCE": "#7F77DD",
-        "FACT": "#D85A30",
-        "LOGISTICS": "#1D9E75",
-        "TRANSACTION": "#E0883B",
-        "ASSET": "#C0508A",
-        "BRIDGE": "#8a909b",
-    }
+    with c3:
 
-    st.markdown(
-        '<div class="dash-heading">'
-        '🕸 Ontology explorer'
-        '</div>',
-        unsafe_allow_html=True,
-    )
+        if (
+            not entities.empty
+            and "BUSINESS_DOMAIN" in entities.columns
+        ):
 
-    st.markdown(
-        '<div class="g-text">'
-        'Click any entity in the map to see its attributes, '
-        'relationships, and metrics.'
-        '</div>',
-        unsafe_allow_html=True,
-    )
-
-    if graph:
-        name_by_id = {
-            e["ENTITY_ID"]: e["DISPLAY_NAME"]
-            for e in entities
-        }
-
-        type_by_id = {
-            e["ENTITY_ID"]: e["ENTITY_TYPE"]
-            for e in entities
-        }
-
-        node_ids = set()
-
-        for edge in graph:
-            node_ids.add(
-                edge["SOURCE_ID"]
-            )
-            node_ids.add(
-                edge["TARGET_ID"]
+            domains = [
+                "All"
+            ] + sorted(
+                entities[
+                    "BUSINESS_DOMAIN"
+                ]
+                .dropna()
+                .astype(str)
+                .unique()
+                .tolist()
             )
 
-        flow_nodes = []
+        else:
+            domains = ["All"]
 
-        for nid in node_ids:
-            col = ENTITY_TYPE_COLOR.get(
-                type_by_id.get(nid, ""),
-                "#8A909B",
-            )
+        domain = st.selectbox(
+            "Business domain",
+            domains,
+        )
 
-            flow_nodes.append(
-                StreamlitFlowNode(
-                    id=nid,
-                    pos=(0, 0),
-                    data={
-                        "content": name_by_id.get(
-                            nid,
-                            nid,
-                        )
-                    },
-                    node_type="default",
-                    source_position="right",
-                    target_position="left",
-                    selectable=True,
-                    style={
-                        "background": "#ffffff",
-                        "border": f"2px solid {col}",
-                        "borderRadius": "8px",
-                        "fontSize": "12px",
-                        "color": "#1c1e21",
-                        "padding": "6px 10px",
-                    },
-                )
-            )
+    # ------------------------------------------------------------------------
+    # Filter entities
+    # ------------------------------------------------------------------------
 
-        flow_edges = [
-            StreamlitFlowEdge(
-                id=(
-                    f"{edge['SOURCE_ID']}-"
-                    f"{edge['TARGET_ID']}-"
-                    f"{i}"
-                ),
-                source=edge["SOURCE_ID"],
-                target=edge["TARGET_ID"],
-                label=edge.get(
-                    "EDGE_LABEL",
-                    "",
-                ),
-                animated=False,
-                edge_type="smoothstep",
-            )
-            for i, edge in enumerate(graph)
+    filtered = entities.copy()
+
+    if (
+        not filtered.empty
+        and entity_type != "All"
+        and "ENTITY_TYPE" in filtered.columns
+    ):
+        filtered = filtered[
+            filtered["ENTITY_TYPE"]
+            == entity_type
         ]
 
-        if "onto_flow_state" not in st.session_state:
-            st.session_state.onto_flow_state = (
-                StreamlitFlowState(
-                    flow_nodes,
-                    flow_edges,
+    if (
+        not filtered.empty
+        and domain != "All"
+        and "BUSINESS_DOMAIN" in filtered.columns
+    ):
+        filtered = filtered[
+            filtered["BUSINESS_DOMAIN"]
+            == domain
+        ]
+
+    if search and not filtered.empty:
+
+        masks = []
+
+        if "DISPLAY_NAME" in filtered.columns:
+            masks.append(
+                filtered[
+                    "DISPLAY_NAME"
+                ]
+                .fillna("")
+                .astype(str)
+                .str.lower()
+                .str.contains(
+                    search,
+                    na=False,
                 )
             )
 
-        stage = st.container(
-            key="onto_stage"
+        if "DESCRIPTION" in filtered.columns:
+            masks.append(
+                filtered[
+                    "DESCRIPTION"
+                ]
+                .fillna("")
+                .astype(str)
+                .str.lower()
+                .str.contains(
+                    search,
+                    na=False,
+                )
+            )
+
+        if "ENTITY_ID" in filtered.columns:
+            masks.append(
+                filtered[
+                    "ENTITY_ID"
+                ]
+                .fillna("")
+                .astype(str)
+                .str.lower()
+                .str.contains(
+                    search,
+                    na=False,
+                )
+            )
+
+        if masks:
+            combined = masks[0]
+
+            for mask in masks[1:]:
+                combined = combined | mask
+
+            filtered = filtered[
+                combined
+            ]
+
+    # ------------------------------------------------------------------------
+    # Summary strip
+    # ------------------------------------------------------------------------
+
+    a, b, c, d = st.columns(4)
+
+    with a:
+        st.metric(
+            "Entities",
+            len(entities),
         )
 
-        with stage:
-            new_state = streamlit_flow(
-                "onto_flow",
-                st.session_state.onto_flow_state,
-                layout=LayeredLayout(
-                    direction="right",
-                    node_node_spacing=40,
-                    node_layer_spacing=110,
-                ),
-                fit_view=True,
-                height=600,
-                get_node_on_click=True,
-                show_minimap=True,
-                show_controls=True,
-                hide_watermark=True,
+    with b:
+        st.metric(
+            "Graph records",
+            len(graph),
+        )
+
+    with c:
+        st.metric(
+            "Metrics",
+            len(metrics),
+        )
+
+    with d:
+        st.metric(
+            "Filtered entities",
+            len(filtered),
+        )
+
+    st.divider()
+
+    # ------------------------------------------------------------------------
+    # Entity selection
+    # ------------------------------------------------------------------------
+
+    left, middle, right = st.columns(
+        [1.05, 1.9, 1.15]
+    )
+
+    with left:
+
+        st.subheader("Entities")
+
+        if filtered.empty:
+
+            st.info(
+                "No entities match the current filters."
             )
 
-            eid = st.session_state.active_entity
+            selected_id = None
 
-            ent = (
-                next(
-                    (
-                        e
-                        for e in entities
-                        if e["ENTITY_ID"] == eid
-                    ),
-                    None,
+        else:
+
+            labels = {}
+
+            for _, row in filtered.iterrows():
+
+                entity_id = row.get(
+                    "ENTITY_ID"
                 )
-                if eid
-                else None
+
+                display_name = row.get(
+                    "DISPLAY_NAME",
+                    entity_id,
+                )
+
+                entity_type_value = row.get(
+                    "ENTITY_TYPE",
+                    "",
+                )
+
+                labels[
+                    entity_id
+                ] = (
+                    f"{display_name} · "
+                    f"{entity_type_value}"
+                )
+
+            existing_selection = (
+                st.session_state.active_entity
             )
 
-            with st.container(
-                key="onto_detail_card"
+            if (
+                existing_selection
+                not in labels
             ):
-                if not ent:
-                    st.markdown(
-                        '<div class="onto-group-title">'
-                        'Entity detail'
-                        '</div>'
-                        '<div class="g-text">'
-                        'Click a node to see its attributes, '
-                        'relationships, and metrics.'
-                        '</div>',
-                        unsafe_allow_html=True,
+                existing_selection = (
+                    list(labels.keys())[0]
+                )
+
+            selected_id = st.radio(
+                "Select an entity",
+                options=list(
+                    labels.keys()
+                ),
+                index=list(
+                    labels.keys()
+                ).index(
+                    existing_selection
+                ),
+                format_func=lambda x: labels[x],
+                label_visibility="collapsed",
+            )
+
+            st.session_state.active_entity = (
+                selected_id
+            )
+
+    # ------------------------------------------------------------------------
+    # Relationship graph
+    # ------------------------------------------------------------------------
+
+    with middle:
+
+        st.subheader(
+            "Relationship Graph"
+        )
+
+        if selected_id is None:
+
+            st.info(
+                "Select an entity to explore its relationships."
+            )
+
+        else:
+
+            selected_rows = entities[
+                entities["ENTITY_ID"]
+                == selected_id
+            ]
+
+            if selected_rows.empty:
+
+                st.info(
+                    "Selected entity could not be found."
+                )
+
+            else:
+
+                selected_row = (
+                    selected_rows.iloc[0]
+                )
+
+                selected_name = (
+                    selected_row.get(
+                        "DISPLAY_NAME",
+                        selected_id,
+                    )
+                )
+
+                st.markdown(
+                    f"**{selected_name}**"
+                )
+
+                # Build graph records.
+                outgoing = pd.DataFrame()
+                incoming = pd.DataFrame()
+
+                if not graph.empty:
+
+                    if (
+                        "FROM_ENTITY_ID"
+                        in graph.columns
+                    ):
+                        outgoing = graph[
+                            graph[
+                                "FROM_ENTITY_ID"
+                            ]
+                            == selected_id
+                        ]
+
+                    if (
+                        "TO_ENTITY_ID"
+                        in graph.columns
+                    ):
+                        incoming = graph[
+                            graph[
+                                "TO_ENTITY_ID"
+                            ]
+                            == selected_id
+                        ]
+
+                if (
+                    outgoing.empty
+                    and incoming.empty
+                ):
+
+                    st.info(
+                        "No relationships defined."
                     )
 
                 else:
-                    parts = [
-                        f'<div class="onto-group-title">'
-                        f'{ent["ENTITY_TYPE"].title()}'
-                        f'</div>',
 
-                        f'<div class="g-value">'
-                        f'{ent["DISPLAY_NAME"]}'
-                        f'</div>',
+                    # --------------------------------------------------------
+                    # Streamlit Flow graph
+                    # --------------------------------------------------------
 
-                        f'<div class="g-text">'
-                        f'{ent.get("DESCRIPTION", "")}'
-                        f'</div>',
+                    nodes = []
+                    edges = []
 
-                        '<div class="g-label">Source</div>',
+                    related_ids = {
+                        selected_id
+                    }
 
-                        f'<div class="g-text">'
-                        f'{ent.get("SOURCE_OBJECT", "")}'
-                        f'</div>',
+                    if not outgoing.empty:
+
+                        for _, row in outgoing.iterrows():
+
+                            related_ids.add(
+                                row.get(
+                                    "TO_ENTITY_ID"
+                                )
+                            )
+
+                    if not incoming.empty:
+
+                        for _, row in incoming.iterrows():
+
+                            related_ids.add(
+                                row.get(
+                                    "FROM_ENTITY_ID"
+                                )
+                            )
+
+                    related_entities = (
+                        entities[
+                            entities[
+                                "ENTITY_ID"
+                            ].isin(
+                                related_ids
+                            )
+                        ]
+                        if not entities.empty
+                        else pd.DataFrame()
+                    )
+
+                    positions = {}
+
+                    position_values = [
+                        (50, 50),
+                        (350, 50),
+                        (50, 250),
+                        (350, 250),
+                        (50, 450),
+                        (350, 450),
+                        (200, 650),
                     ]
 
-                    attrs = load_ontology_attributes(
-                        eid
-                    )
+                    for idx, entity_id in enumerate(
+                        related_ids
+                    ):
 
-                    if attrs:
-                        parts.append(
-                            '<div class="g-label">'
-                            'Attributes'
-                            '</div>'
+                        if entity_id is None:
+                            continue
+
+                        row_matches = (
+                            related_entities[
+                                related_entities[
+                                    "ENTITY_ID"
+                                ]
+                                == entity_id
+                            ]
+                            if not related_entities.empty
+                            else pd.DataFrame()
                         )
 
-                        parts += [
-                            f'<div class="onto-item">'
-                            f'<span>'
-                            f'{a["DISPLAY_NAME"] or a["ATTRIBUTE_NAME"]}'
-                            f'{" 🔑" if str(a.get("IS_KEY")).lower() == "true" else ""}'
-                            f'</span>'
-                            f'<span class="count">'
-                            f'{a["DATA_TYPE"]}'
-                            f'</span>'
-                            f'</div>'
-                            for a in attrs
+                        if row_matches.empty:
+
+                            display_name = str(
+                                entity_id
+                            )
+
+                        else:
+
+                            display_name = row_matches.iloc[
+                                0
+                            ].get(
+                                "DISPLAY_NAME",
+                                entity_id,
+                            )
+
+                        x, y = position_values[
+                            idx % len(
+                                position_values
+                            )
                         ]
 
-                    rels = [
-                        g
-                        for g in graph
-                        if g["SOURCE_ID"] == eid
-                        or g["TARGET_ID"] == eid
-                    ]
-
-                    if rels:
-                        parts.append(
-                            '<div class="g-label">'
-                            'Relationships'
-                            '</div>'
+                        positions[
+                            entity_id
+                        ] = (
+                            x,
+                            y,
                         )
 
-                        parts += [
-                            f'<div class="onto-item">'
-                            f'<span>'
-                            f'{r["SOURCE_NAME"]} '
-                            f'{r["EDGE_LABEL"]} '
-                            f'{r["TARGET_NAME"]}'
-                            f'</span>'
-                            f'<span class="count">'
-                            f'{r.get("CARDINALITY", "")}'
-                            f'</span>'
-                            f'</div>'
-                            for r in rels
-                        ]
-
-                    ems = load_entity_metrics(
-                        eid
-                    )
-
-                    if ems:
-                        parts.append(
-                            '<div class="g-label">'
-                            'Metrics'
-                            '</div>'
+                        nodes.append(
+                            StreamlitFlowNode(
+                                str(entity_id),
+                                (
+                                    str(
+                                        display_name
+                                    )
+                                ),
+                                (
+                                    x,
+                                    y,
+                                ),
+                                style={
+                                    "background":
+                                        (
+                                            persona_color
+                                            if entity_id
+                                            == selected_id
+                                            else "#ffffff"
+                                        ),
+                                    "color":
+                                        (
+                                            "#ffffff"
+                                            if entity_id
+                                            == selected_id
+                                            else "#111827"
+                                        ),
+                                    "border":
+                                        (
+                                            "1px solid "
+                                            + persona_color
+                                        ),
+                                    "borderRadius":
+                                        "10px",
+                                    "padding":
+                                        "10px",
+                                },
+                            )
                         )
 
-                        parts += [
-                            f'<div class="onto-item">'
-                            f'<span>'
-                            f'{m["METRIC_NAME"]}'
-                            f'</span>'
-                            f'<span class="count">'
-                            f'{m.get("ROLE", "")}'
-                            f'</span>'
-                            f'</div>'
-                            for m in ems
-                        ]
+                    # Outgoing edges
+                    if not outgoing.empty:
 
-                    st.markdown(
-                        "".join(parts),
-                        unsafe_allow_html=True,
-                    )
+                        for idx, row in outgoing.iterrows():
 
-        if (
-            new_state
-            and new_state.selected_id
-            and new_state.selected_id
-            != st.session_state.active_entity
-        ):
-            st.session_state.active_entity = (
-                new_state.selected_id
-            )
-            st.rerun()
+                            source = row.get(
+                                "FROM_ENTITY_ID"
+                            )
 
-    else:
-        st.info(
-            "No relationship data available."
+                            target = row.get(
+                                "TO_ENTITY_ID"
+                            )
+
+                            if (
+                                source is None
+                                or target is None
+                            ):
+                                continue
+
+                            relationship = row.get(
+                                "RELATIONSHIP_NAME",
+                                "",
+                            )
+
+                            edges.append(
+                                StreamlitFlowEdge(
+                                    f"edge_out_{idx}",
+                                    str(source),
+                                    str(target),
+                                    label=str(
+                                        relationship
+                                    ),
+                                )
+                            )
+
+                    # Incoming edges
+                    if not incoming.empty:
+
+                        for idx, row in incoming.iterrows():
+
+                            source = row.get(
+                                "FROM_ENTITY_ID"
+                            )
+
+                            target = row.get(
+                                "TO_ENTITY_ID"
+                            )
+
+                            if (
+                                source is None
+                                or target is None
+                            ):
+                                continue
+
+                            relationship = row.get(
+                                "RELATIONSHIP_NAME",
+                                "",
+                            )
+
+                            edges.append(
+                                StreamlitFlowEdge(
+                                    f"edge_in_{idx}",
+                                    str(source),
+                                    str(target),
+                                    label=str(
+                                        relationship
+                                    ),
+                                )
+                            )
+
+                    if nodes:
+
+                        flow_state = StreamlitFlowState(
+                            nodes,
+                            edges,
+                        )
+
+                        streamlit_flow(
+                            f"ontology_flow_{selected_id}",
+                            flow_state,
+                            layout=LayeredLayout(
+                                direction="LR"
+                            ),
+                            fit_view=True,
+                            height=470,
+                            enable_node_menu=False,
+                            enable_edge_menu=False,
+                            enable_pane_menu=False,
+                            hide_watermark=True,
+                        )
+
+    # ------------------------------------------------------------------------
+    # Entity details
+    # ------------------------------------------------------------------------
+
+    with right:
+
+        st.subheader(
+            "Entity Details"
         )
 
-    st.markdown(
-        '<div class="band-rule"></div>',
-        unsafe_allow_html=True,
-    )
+        if selected_id is None:
 
-    st.markdown(
-        '<div class="onto-group-title">'
-        'Governed metric catalog'
-        '</div>',
-        unsafe_allow_html=True,
-    )
-
-    _metric_colors = [
-        "#378ADD",
-        "#E0B84B",
-        "#1D9E75",
-        "#D85A30",
-        "#7F77DD",
-    ]
-
-    try:
-        catalog = load_metric_catalog()
-    except Exception:
-        catalog = []
-
-    cat_cols = st.columns(
-        len(catalog) or 1
-    )
-
-    for col, m, color in zip(
-        cat_cols,
-        catalog,
-        _metric_colors * 3,
-    ):
-        with col:
-            st.markdown(
-                f'<div class="metric-card" '
-                f'style="border-left:3px solid {color};">'
-                f'<div class="m-name">'
-                f'{m["DISPLAY_NAME"]}'
-                f'</div>'
-                f'<div class="m-def">'
-                f'{m.get("DEFINITION", "")}'
-                f'</div>'
-                f'<div class="m-view">'
-                f'{m.get("CANONICAL_OBJECT", "")}'
-                f'</div>'
-                f'</div>',
-                unsafe_allow_html=True,
+            st.info(
+                "Select an entity."
             )
+
+        else:
+
+            selected_rows = entities[
+                entities["ENTITY_ID"]
+                == selected_id
+            ]
+
+            if selected_rows.empty:
+
+                st.info(
+                    "Entity details unavailable."
+                )
+
+            else:
+
+                row = selected_rows.iloc[0]
+
+                st.markdown(
+                    f"""
+                    <div class="ontology-card">
+                        <div class="entity-title">
+                            {row.get("DISPLAY_NAME", selected_id)}
+                        </div>
+                        <div class="muted">
+                            {row.get("ENTITY_TYPE", "")}
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+                description = row.get(
+                    "DESCRIPTION"
+                )
+
+                if pd.notna(description):
+                    st.markdown(
+                        f"**Description**  \n{description}"
+                    )
+
+                business_domain = row.get(
+                    "BUSINESS_DOMAIN"
+                )
+
+                if pd.notna(business_domain):
+                    st.markdown(
+                        f"**Business domain:** "
+                        f"{business_domain}"
+                    )
+
+                source_object = row.get(
+                    "SOURCE_OBJECT"
+                )
+
+                if pd.notna(source_object):
+                    st.markdown(
+                        f"**Source:** `{source_object}`"
+                    )
+
+    # ------------------------------------------------------------------------
+    # Attributes and metrics
+    # ------------------------------------------------------------------------
+
+    st.divider()
+
+    detail_left, detail_right = st.columns(
+        [1.2, 1]
+    )
+
+    with detail_left:
+
+        st.subheader(
+            "Attributes"
+        )
+
+        if attributes.empty:
+
+            st.info(
+                "No ontology attributes available."
+            )
+
+        else:
+
+            entity_attributes = attributes[
+                attributes["ENTITY_ID"]
+                == selected_id
+            ]
+
+            if entity_attributes.empty:
+
+                st.info(
+                    "No attributes defined for this entity."
+                )
+
+            else:
+
+                display_cols = [
+                    col
+                    for col in [
+                        "DISPLAY_NAME",
+                        "ATTRIBUTE_NAME",
+                        "DATA_TYPE",
+                        "DESCRIPTION",
+                        "IS_KEY",
+                        "IS_FOREIGN_KEY",
+                    ]
+                    if col
+                    in entity_attributes.columns
+                ]
+
+                st.dataframe(
+                    entity_attributes[
+                        display_cols
+                    ],
+                    width="stretch",
+                    hide_index=True,
+                )
+
+    with detail_right:
+
+        st.subheader(
+            "Governed Metrics"
+        )
+
+        if entity_metrics.empty:
+
+            st.info(
+                "No governed metrics mapped to this entity."
+            )
+
+        else:
+
+            entity_metric_rows = entity_metrics[
+                entity_metrics["ENTITY_ID"]
+                == selected_id
+            ]
+
+            if entity_metric_rows.empty:
+
+                st.info(
+                    "No governed metrics mapped to this entity."
+                )
+
+            else:
+
+                for _, metric in entity_metric_rows.iterrows():
+
+                    metric_name = metric.get(
+                        "DISPLAY_NAME",
+                        metric.get(
+                            "METRIC_NAME",
+                            "Metric",
+                        ),
+                    )
+
+                    definition = metric.get(
+                        "DEFINITION",
+                        metric.get(
+                            "DESCRIPTION",
+                            "",
+                        ),
+                    )
+
+                    canonical_object = metric.get(
+                        "CANONICAL_OBJECT",
+                        "",
+                    )
+
+                    st.markdown(
+                        f"""
+                        <div class="metric-card">
+                            <div class="m-name">
+                                {metric_name}
+                            </div>
+                            <div class="m-def">
+                                {definition or ""}
+                            </div>
+                            <div class="m-view">
+                                {canonical_object or ""}
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
 
 
 # ============================================================================
@@ -2538,7 +2268,7 @@ else:
 #
 # Voice/audio/transcription has intentionally been removed.
 #
-# The composer now follows:
+# The composer follows:
 #
 #   User types question
 #          ↓
@@ -2548,10 +2278,15 @@ else:
 #          ↓
 #   Cortex Agent streaming
 #
-# No st.audio_input()
-# No transcribe_audio()
-# No audio file state
-# No transcription dependency
+# There is intentionally NO:
+#
+#   st.audio_input()
+#   transcribe_audio()
+#   voice_in
+#   last_audio_file_id
+#   audio transcription state
+#   audio CSS
+#
 # ============================================================================
 
 if st.session_state.active_view == "Chat":
@@ -2564,41 +2299,50 @@ if st.session_state.active_view == "Chat":
 
     # Clear the input before the widget is created.
     if st.session_state.pending_clear:
+
         st.session_state.composer_input = ""
+
         st.session_state.pending_clear = False
 
     composer_dock = st.container(
         key="composer_dock"
     )
 
-    with composer_dock, st.container(
-        key="composer_bar"
-    ):
-        text_col, send_col = st.columns(
-            [8.5, 1.2],
-            vertical_alignment="center",
-        )
+    with composer_dock:
 
-        with text_col:
-            st.text_input(
-                "Ask",
-                placeholder=(
-                    "Ask about suppliers, plants, "
-                    "orders, inventory…"
-                ),
-                label_visibility="collapsed",
-                key="composer_input",
-                on_change=lambda: st.session_state.update(
-                    enter_pressed=True
-                ),
+        with st.container(
+            key="composer_bar"
+        ):
+
+            text_col, send_col = st.columns(
+                [8.5, 1.2],
+                vertical_alignment="center",
             )
 
-        with send_col:
-            send = st.button(
-                "Send",
-                type="primary",
-                width="stretch",
-            )
+            with text_col:
+
+                st.text_input(
+                    "Ask",
+                    placeholder=(
+                        "Ask about suppliers, plants, "
+                        "orders, inventory…"
+                    ),
+                    label_visibility="collapsed",
+                    key="composer_input",
+                    on_change=lambda: (
+                        st.session_state.update(
+                            enter_pressed=True
+                        )
+                    ),
+                )
+
+            with send_col:
+
+                send = st.button(
+                    "Send",
+                    type="primary",
+                    width="stretch",
+                )
 
     submitted = (
         send
@@ -2612,7 +2356,12 @@ if st.session_state.active_view == "Chat":
         submitted
         and st.session_state.composer_input.strip()
     ):
-        q = st.session_state.composer_input.strip()
+
+        q = (
+            st.session_state
+            .composer_input
+            .strip()
+        )
 
         # Clear the input on the next Streamlit run.
         st.session_state.pending_clear = True

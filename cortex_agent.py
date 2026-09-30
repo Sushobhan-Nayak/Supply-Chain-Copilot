@@ -1,22 +1,38 @@
-"""Cortex Agent REST client for the Supply Chain Copilot.
+"""Cortex Agent client for the Supply Chain Copilot.
 
-Talks to a deployed Snowflake Cortex Agent over the v2 REST API and parses the
-response into a flat AgentResult.
+Uses:
+    - Snowflake Python Connector with key-pair authentication for SQL.
+    - Snowflake REST API with short-lived key-pair JWTs for Cortex Agent
+      and Cortex thread APIs.
 
-Configuration is read from st.secrets (see .streamlit/secrets.toml).
-Secrets never live in code so this file is safe to commit.
+No PAT is used anywhere in this file.
+
+Configuration is read from st.secrets.
+Private key material should never be committed to source control.
 
 Voice input is currently disabled.
 """
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+import jwt
 import requests
 import streamlit as st
+import snowflake.connector
+
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.serialization import (
+    Encoding,
+    PublicFormat,
+    load_pem_private_key,
+)
 
 
 # ============================================================================
@@ -24,38 +40,167 @@ import streamlit as st
 # ============================================================================
 
 def _cfg() -> dict:
-    """Read Snowflake REST configuration from Streamlit secrets."""
+    """Read Snowflake configuration from Streamlit secrets."""
 
     s = st.secrets["snowflake"]
 
     return {
+        "account": s["account"],
         "account_url": s["account_url"].rstrip("/"),
+        "user": s["user"],
+        "warehouse": s["warehouse"],
         "database": s["database"],
         "schema": s["schema"],
         "agent": s["agent"],
-        "pat": s["pat"],
+        "private_key": s["private_key"],
+        "private_key_passphrase": s.get(
+            "private_key_passphrase",
+            None,
+        ),
     }
 
 
-def _bearer() -> tuple[str, str]:
-    """Return the PAT and Snowflake authorization token type."""
+# ============================================================================
+# KEY-PAIR AUTHENTICATION
+# ============================================================================
 
-    s = st.secrets["snowflake"]
+@st.cache_resource
+def _private_key():
+    """Load the RSA private key from Streamlit secrets."""
 
-    return (
-        s["pat"],
-        "PROGRAMMATIC_ACCESS_TOKEN",
+    c = _cfg()
+
+    pem_data = c["private_key"]
+
+    if isinstance(pem_data, str):
+        pem_data = pem_data.encode("utf-8")
+
+    passphrase = c.get("private_key_passphrase")
+
+    if passphrase:
+        passphrase = passphrase.encode("utf-8")
+
+    return load_pem_private_key(
+        pem_data,
+        password=passphrase,
+        backend=default_backend(),
     )
 
+
+@st.cache_resource
+def _public_key_fingerprint() -> str:
+    """Return Snowflake's SHA256 public-key fingerprint."""
+
+    private_key = _private_key()
+
+    public_key_raw = (
+        private_key
+        .public_key()
+        .public_bytes(
+            Encoding.DER,
+            PublicFormat.SubjectPublicKeyInfo,
+        )
+    )
+
+    sha256hash = hashlib.sha256()
+    sha256hash.update(public_key_raw)
+
+    return (
+        "SHA256:"
+        + base64.b64encode(
+            sha256hash.digest()
+        ).decode("utf-8")
+    )
+
+
+def _qualified_username() -> str:
+    """Return ACCOUNT.USER in Snowflake's required uppercase format."""
+
+    c = _cfg()
+
+    account = c["account"].strip()
+
+    # Snowflake's JWT format requires the account identifier
+    # without region/cloud-provider suffixes.
+    if ".global" not in account.lower():
+
+        if "." in account:
+            account = account.split(".", 1)[0]
+
+        elif "-" in account:
+            # This branch only applies when an account locator
+            # style identifier is supplied.
+            #
+            # For normal organization-account identifiers such as
+            # MYORG-MYACCOUNT, the value is kept intact.
+            pass
+
+    account = account.replace(".", "-").upper()
+
+    user = c["user"].upper()
+
+    return f"{account}.{user}"
+
+
+@st.cache_data(ttl=3000)
+def _bearer() -> tuple[str, str]:
+    """Generate a short-lived Snowflake key-pair JWT.
+
+    Snowflake key-pair JWTs can be valid for at most one hour.
+    We use 59 minutes here.
+    """
+
+    private_key = _private_key()
+
+    qualified_username = _qualified_username()
+    public_key_fp = _public_key_fingerprint()
+
+    now = datetime.now(timezone.utc)
+
+    lifetime = timedelta(minutes=59)
+
+    payload = {
+        "iss": (
+            qualified_username
+            + "."
+            + public_key_fp
+        ),
+        "sub": qualified_username,
+        "iat": now,
+        "exp": now + lifetime,
+    }
+
+    token = jwt.encode(
+        payload,
+        key=private_key,
+        algorithm="RS256",
+    )
+
+    if isinstance(token, bytes):
+        token = token.decode("utf-8")
+
+    return (
+        token,
+        "KEYPAIR_JWT",
+    )
+
+
+# ============================================================================
+# CORTEX AGENT REST CONFIGURATION
+# ============================================================================
 
 def _run_url(c: dict) -> str:
     return (
-        f"{c['account_url']}/api/v2/databases/{c['database']}"
-        f"/schemas/{c['schema']}/agents/{c['agent']}:run"
+        f"{c['account_url']}/api/v2/databases/"
+        f"{c['database']}/schemas/{c['schema']}/"
+        f"agents/{c['agent']}:run"
     )
 
 
-def _headers(c: dict, streaming: bool) -> dict:
+def _headers(
+    c: dict,
+    streaming: bool,
+) -> dict:
     token, token_type = _bearer()
 
     return {
@@ -147,11 +292,9 @@ def _extract_from_response_payload(
 
         elif itype == "chart":
 
-            spec = item.get(
-                "chart",
-                {},
-            ).get(
-                "chart_spec"
+            spec = (
+                item.get("chart", {})
+                .get("chart_spec")
             )
 
             if isinstance(spec, str):
@@ -320,7 +463,10 @@ def _parse_sse(
         # Analyst tool result
         # --------------------------------------------------------------------
 
-        if event_type == "response.tool_result.analyst.delta":
+        if (
+            event_type
+            == "response.tool_result.analyst.delta"
+        ):
 
             delta = data.get(
                 "delta",
@@ -434,7 +580,10 @@ def ask_agent(
 
         c = _cfg()
 
-    except (KeyError, FileNotFoundError):
+    except (
+        KeyError,
+        FileNotFoundError,
+    ):
 
         return AgentResult(
             error=(
@@ -538,7 +687,10 @@ def ask_agent_stream(
 
         c = _cfg()
 
-    except (KeyError, FileNotFoundError):
+    except (
+        KeyError,
+        FileNotFoundError,
+    ):
 
         ask_agent_stream.result = AgentResult(
             error="Snowflake secrets are not configured."
@@ -650,7 +802,10 @@ def ask_agent_stream(
         # Analyst result
         # --------------------------------------------------------------------
 
-        elif event_type == "response.tool_result.analyst.delta":
+        elif (
+            event_type
+            == "response.tool_result.analyst.delta"
+        ):
 
             delta = data.get(
                 "delta",
@@ -726,68 +881,60 @@ def ask_agent_stream(
 # DIRECT SQL
 # ============================================================================
 
+@st.cache_resource
+def _get_snowflake_connection():
+    """Create a Snowflake connector connection using key-pair auth."""
+
+    c = _cfg()
+
+    return snowflake.connector.connect(
+        account=c["account"],
+        user=c["user"],
+        authenticator="SNOWFLAKE_JWT",
+        private_key=c["private_key"],
+        private_key_file_pwd=c["private_key_passphrase"],
+        warehouse=c["warehouse"],
+        database=c["database"],
+        schema=c["schema"],
+    )
+
+
 def run_sql(
     statement: str,
     timeout: int = 60,
 ) -> tuple[list[str], list[list]]:
-    """Execute SQL through the Snowflake SQL REST API."""
+    """Execute SQL through the Snowflake Python Connector.
 
-    c = _cfg()
+    Authentication uses Snowflake key-pair authentication.
+    No PAT or SQL REST API is used.
+    """
 
-    url = (
-        f"{c['account_url']}"
-        f"/api/v2/statements"
-    )
+    conn = _get_snowflake_connection()
 
-    headers = {
-        "Authorization": (
-            f"Bearer {c['pat']}"
-        ),
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "X-Snowflake-Authorization-Token-Type": (
-            "PROGRAMMATIC_ACCESS_TOKEN"
-        ),
-    }
+    cur = conn.cursor()
 
-    s = st.secrets["snowflake"]
+    try:
 
-    body = {
-        "statement": statement,
-        "warehouse": s.get("warehouse"),
-        "database": c["database"],
-        "schema": c["schema"],
-        "timeout": timeout,
-    }
-
-    resp = requests.post(
-        url,
-        headers=headers,
-        json=body,
-        timeout=timeout + 30,
-    )
-
-    resp.raise_for_status()
-
-    data = resp.json()
-
-    cols = [
-        col["name"]
-        for col in data.get(
-            "resultSetMetaData",
-            {},
-        ).get(
-            "rowType",
-            [],
+        cur.execute(
+            statement,
+            timeout=timeout,
         )
-    ]
 
-    rows = (
-        data.get("data", [])
-        or []
-    )
+        columns = [
+            desc[0]
+            for desc in cur.description
+        ]
 
-    return cols, rows
+        rows = cur.fetchall()
+
+        return (
+            columns,
+            [list(row) for row in rows],
+        )
+
+    finally:
+
+        cur.close()
 
 
 # ============================================================================
@@ -1011,85 +1158,12 @@ def delete_thread(
 # VOICE INPUT — DISABLED
 # ============================================================================
 #
-# Voice functionality has been intentionally commented out.
+# Voice functionality has been intentionally removed.
 #
-# Previous implementation:
+# There is no:
+#   - audio upload
+#   - Snowflake voice stage
+#   - AI_TRANSCRIBE
+#   - transcribe_audio()
+#   - Snowpark voice session
 #
-# _VOICE_STAGE = "VOICE_AUDIO"
-# _snowpark_session = None
-#
-#
-# def _get_session():
-#     global _snowpark_session
-#
-#     if _snowpark_session is not None:
-#         return _snowpark_session
-#
-#     if IN_SIS:
-#         _snowpark_session = _ACTIVE_SESSION
-#     else:
-#         from snowflake.snowpark import Session
-#
-#         s = st.secrets["snowflake"]
-#
-#         _snowpark_session = Session.builder.configs({
-#             "account": s["account"],
-#             "user": s["user"],
-#             "authenticator": "programmatic_access_token",
-#             "token": s["pat"],
-#             "warehouse": s.get("warehouse"),
-#             "database": s["database"],
-#             "schema": s["schema"],
-#         }).create()
-#
-#     _snowpark_session.sql(
-#         f"CREATE STAGE IF NOT EXISTS {_VOICE_STAGE} "
-#         "DIRECTORY=(ENABLE=true) "
-#         "ENCRYPTION=(TYPE='SNOWFLAKE_SSE')"
-#     ).collect()
-#
-#     return _snowpark_session
-#
-#
-# def transcribe_audio(audio_bytes: bytes) -> str:
-#     import io
-#     import time as _time
-#
-#     session = _get_session()
-#
-#     fname = (
-#         f"voice_{int(_time.time() * 1000)}.wav"
-#     )
-#
-#     session.file.put_stream(
-#         io.BytesIO(audio_bytes),
-#         f"@{_VOICE_STAGE}/{fname}",
-#         auto_compress=False,
-#         overwrite=True,
-#     )
-#
-#     safe = fname.replace("'", "''")
-#
-#     try:
-#         rows = session.sql(
-#             f"""
-#             SELECT AI_TRANSCRIBE(
-#                 TO_FILE('@{_VOICE_STAGE}', '{safe}')
-#             ) AS T
-#             """
-#         ).collect()
-#
-#         return json.loads(
-#             rows[0]["T"]
-#         ).get(
-#             "text",
-#             "",
-#         ).strip()
-#
-#     finally:
-#         try:
-#             session.sql(
-#                 f"REMOVE @{_VOICE_STAGE}/{safe}"
-#             ).collect()
-#         except Exception:
-#             pass
