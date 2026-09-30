@@ -1,16 +1,35 @@
-"""Cortex Agent client for the Supply Chain Copilot.
+"""
+Cortex Agent client for Supply Chain Copilot.
 
-Uses:
-    - Snowflake Python Connector with key-pair authentication for SQL.
-    - Snowflake REST API with short-lived key-pair JWTs for Cortex Agent
-      and Cortex thread APIs.
+Authentication architecture
+---------------------------
+1. Direct SQL:
+   - Snowflake Python Connector
+   - Username + password
+   - No PAT
+   - No private key
 
-No PAT is used anywhere in this file.
+2. Cortex Agent / Thread REST APIs:
+   - Key-pair JWT authentication
+   - No PAT
+   - Required for Streamlit Community Cloud until OAuth is configured
 
-Configuration is read from st.secrets.
-Private key material should never be committed to source control.
+3. Voice:
+   - Disabled
 
-Voice input is currently disabled.
+Configuration
+-------------
+[snowflake]
+account = "YOUR_ACCOUNT"
+account_url = "https://YOUR_ACCOUNT.snowflakecomputing.com"
+user = "YOUR_USERNAME"
+password = "YOUR_PASSWORD"
+warehouse = "YOUR_WAREHOUSE"
+database = "SUPPLY_CHAIN_ONTOLOGY"
+schema = "CORE"
+agent = "SUPPLY_CHAIN_COPILOT"
+
+private_key_passphrase = "..."  # optional
 """
 
 from __future__ import annotations
@@ -24,8 +43,8 @@ from typing import Optional
 
 import jwt
 import requests
-import streamlit as st
 import snowflake.connector
+import streamlit as st
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.serialization import (
@@ -35,12 +54,23 @@ from cryptography.hazmat.primitives.serialization import (
 )
 
 
-# ============================================================================
+# =============================================================================
 # CONFIGURATION
-# ============================================================================
+# =============================================================================
 
 def _cfg() -> dict:
-    """Read Snowflake configuration from Streamlit secrets."""
+    """
+    Read Snowflake configuration from Streamlit secrets.
+
+    SQL authentication uses:
+        account
+        user
+        password
+
+    Cortex Agent REST authentication additionally uses:
+        private_key
+        private_key_passphrase
+    """
 
     s = st.secrets["snowflake"]
 
@@ -48,11 +78,12 @@ def _cfg() -> dict:
         "account": s["account"],
         "account_url": s["account_url"].rstrip("/"),
         "user": s["user"],
+        "password": s["password"],
         "warehouse": s["warehouse"],
         "database": s["database"],
         "schema": s["schema"],
         "agent": s["agent"],
-        "private_key": s["private_key"],
+        "private_key": s.get("private_key"),
         "private_key_passphrase": s.get(
             "private_key_passphrase",
             None,
@@ -60,22 +91,42 @@ def _cfg() -> dict:
     }
 
 
-# ============================================================================
+# =============================================================================
 # KEY-PAIR AUTHENTICATION
-# ============================================================================
+# =============================================================================
+#
+# This section is ONLY used by:
+#   - Cortex Agent REST API
+#   - Cortex thread REST API
+#
+# Direct SQL does NOT use this key.
+# Direct SQL uses username/password below.
+# =============================================================================
 
 @st.cache_resource
 def _private_key():
-    """Load the RSA private key from Streamlit secrets."""
+    """
+    Load RSA private key for Cortex Agent REST authentication.
+
+    This is intentionally NOT used for run_sql().
+    """
 
     c = _cfg()
 
-    pem_data = c["private_key"]
+    pem_data = c.get("private_key")
+
+    if not pem_data:
+        raise RuntimeError(
+            "Cortex Agent REST authentication requires "
+            "'private_key' in [snowflake] secrets."
+        )
 
     if isinstance(pem_data, str):
         pem_data = pem_data.encode("utf-8")
 
-    passphrase = c.get("private_key_passphrase")
+    passphrase = c.get(
+        "private_key_passphrase"
+    )
 
     if passphrase:
         passphrase = passphrase.encode("utf-8")
@@ -89,7 +140,9 @@ def _private_key():
 
 @st.cache_resource
 def _public_key_fingerprint() -> str:
-    """Return Snowflake's SHA256 public-key fingerprint."""
+    """
+    Return Snowflake SHA256 public-key fingerprint.
+    """
 
     private_key = _private_key()
 
@@ -114,28 +167,27 @@ def _public_key_fingerprint() -> str:
 
 
 def _qualified_username() -> str:
-    """Return ACCOUNT.USER in Snowflake's required uppercase format."""
+    """
+    Build Snowflake ACCOUNT.USER identifier used by JWT.
+    """
 
     c = _cfg()
 
     account = c["account"].strip()
 
-    # Snowflake's JWT format requires the account identifier
-    # without region/cloud-provider suffixes.
     if ".global" not in account.lower():
 
         if "." in account:
-            account = account.split(".", 1)[0]
+            account = account.split(
+                ".",
+                1,
+            )[0]
 
-        elif "-" in account:
-            # This branch only applies when an account locator
-            # style identifier is supplied.
-            #
-            # For normal organization-account identifiers such as
-            # MYORG-MYACCOUNT, the value is kept intact.
-            pass
-
-    account = account.replace(".", "-").upper()
+    account = (
+        account
+        .replace(".", "-")
+        .upper()
+    )
 
     user = c["user"].upper()
 
@@ -144,20 +196,29 @@ def _qualified_username() -> str:
 
 @st.cache_data(ttl=3000)
 def _bearer() -> tuple[str, str]:
-    """Generate a short-lived Snowflake key-pair JWT.
+    """
+    Generate short-lived Snowflake key-pair JWT.
 
-    Snowflake key-pair JWTs can be valid for at most one hour.
-    We use 59 minutes here.
+    Used ONLY for Cortex REST APIs.
     """
 
     private_key = _private_key()
 
-    qualified_username = _qualified_username()
-    public_key_fp = _public_key_fingerprint()
+    qualified_username = (
+        _qualified_username()
+    )
 
-    now = datetime.now(timezone.utc)
+    public_key_fp = (
+        _public_key_fingerprint()
+    )
 
-    lifetime = timedelta(minutes=59)
+    now = datetime.now(
+        timezone.utc
+    )
+
+    lifetime = timedelta(
+        minutes=59
+    )
 
     payload = {
         "iss": (
@@ -185,15 +246,17 @@ def _bearer() -> tuple[str, str]:
     )
 
 
-# ============================================================================
+# =============================================================================
 # CORTEX AGENT REST CONFIGURATION
-# ============================================================================
+# =============================================================================
 
 def _run_url(c: dict) -> str:
+
     return (
         f"{c['account_url']}/api/v2/databases/"
-        f"{c['database']}/schemas/{c['schema']}/"
-        f"agents/{c['agent']}:run"
+        f"{c['database']}/schemas/"
+        f"{c['schema']}/agents/"
+        f"{c['agent']}:run"
     )
 
 
@@ -201,223 +264,366 @@ def _headers(
     c: dict,
     streaming: bool,
 ) -> dict:
+
     token, token_type = _bearer()
 
     return {
-        "Authorization": f"Bearer {token}",
+        "Authorization": (
+            f"Bearer {token}"
+        ),
         "Content-Type": "application/json",
         "Accept": (
             "text/event-stream"
             if streaming
             else "application/json"
         ),
-        "X-Snowflake-Authorization-Token-Type": token_type,
+        "X-Snowflake-Authorization-Token-Type": (
+            token_type
+        ),
     }
 
 
-# ============================================================================
+# =============================================================================
 # RESULT OBJECT
-# ============================================================================
+# =============================================================================
 
 @dataclass
 class AgentResult:
+
     answer_text: str = ""
+
     generated_sql: str = ""
+
     query_id: Optional[str] = None
-    result_rows: list[list] = field(default_factory=list)
-    column_names: list[str] = field(default_factory=list)
-    tools_used: list[str] = field(default_factory=list)
-    citations: list[dict] = field(default_factory=list)
-    warnings: list[str] = field(default_factory=list)
+
+    result_rows: list[list] = field(
+        default_factory=list
+    )
+
+    column_names: list[str] = field(
+        default_factory=list
+    )
+
+    tools_used: list[str] = field(
+        default_factory=list
+    )
+
+    citations: list[dict] = field(
+        default_factory=list
+    )
+
+    warnings: list[str] = field(
+        default_factory=list
+    )
+
     chart_spec: Optional[dict] = None
+
     thread_id: Optional[int] = None
+
     assistant_message_id: Optional[int] = None
+
     error: Optional[str] = None
 
 
-# ============================================================================
-# RESPONSE PARSING
-# ============================================================================
-
-def _extract_from_response_payload(
-    data: dict,
-    result: AgentResult,
-) -> None:
-    """Extract useful information from a Cortex Agent response."""
-
-    # The agent can emit multiple text blocks.
-    # The final text block is treated as the final answer.
-    for item in data.get("content", []):
-
-        itype = item.get("type")
-
-        # --------------------------------------------------------------------
-        # Text
-        # --------------------------------------------------------------------
-
-        if itype == "text":
-
-            txt = item.get("text", "")
-
-            if txt.strip():
-                result.answer_text = txt
-
-            for ann in item.get("annotations", []):
-
-                result.citations.append(
-                    {
-                        "title": ann.get("doc_title"),
-                        "text": ann.get("text"),
-                        "type": ann.get("type"),
-                    }
-                )
-
-        # --------------------------------------------------------------------
-        # Table
-        # --------------------------------------------------------------------
-
-        elif itype == "table":
-
-            _load_result_set(
-                item.get("result_set", {}),
-                result,
-            )
-
-            if item.get("query_id"):
-                result.query_id = item["query_id"]
-
-        # --------------------------------------------------------------------
-        # Chart
-        # --------------------------------------------------------------------
-
-        elif itype == "chart":
-
-            spec = (
-                item.get("chart", {})
-                .get("chart_spec")
-            )
-
-            if isinstance(spec, str):
-
-                try:
-                    result.chart_spec = json.loads(spec)
-                except json.JSONDecodeError:
-                    pass
-
-            elif isinstance(spec, dict):
-
-                result.chart_spec = spec
-
-        # --------------------------------------------------------------------
-        # Tool use
-        # --------------------------------------------------------------------
-
-        elif itype == "tool_use":
-
-            tu = item.get(
-                "tool_use",
-                item,
-            )
-
-            result.tools_used.append(
-                tu.get("name")
-                or tu.get("type", "tool")
-            )
-
-        # --------------------------------------------------------------------
-        # Tool result
-        # --------------------------------------------------------------------
-
-        elif itype == "tool_result":
-
-            tr = item.get(
-                "tool_result",
-                item,
-            )
-
-            for sub in tr.get("content", []):
-
-                j = (
-                    sub.get("json")
-                    if isinstance(sub, dict)
-                    else None
-                )
-
-                if isinstance(j, dict):
-
-                    if j.get("sql"):
-                        result.generated_sql = j["sql"]
-
-                    if j.get("query_id"):
-                        result.query_id = j["query_id"]
-
-                    if j.get("result_set"):
-                        _load_result_set(
-                            j["result_set"],
-                            result,
-                        )
-
-    # ------------------------------------------------------------------------
-    # Metadata
-    # ------------------------------------------------------------------------
-
-    meta = data.get(
-        "metadata",
-        {},
-    )
-
-    if meta.get("thread_id") is not None:
-        result.thread_id = meta["thread_id"]
-
-    if meta.get("assistant_message_id") is not None:
-        result.assistant_message_id = (
-            meta["assistant_message_id"]
-        )
-
-    # ------------------------------------------------------------------------
-    # Warnings
-    # ------------------------------------------------------------------------
-
-    for w in data.get("warnings", []):
-
-        msg = w.get("message", "")
-
-        if msg:
-            result.warnings.append(msg)
-
+# =============================================================================
+# RESULT SET PARSER
+# =============================================================================
 
 def _load_result_set(
     rs: dict,
     result: AgentResult,
 ) -> None:
-    """Load a Snowflake result set into AgentResult."""
 
     if not rs:
         return
 
-    result.result_rows = (
+    data = (
         rs.get("data", [])
         or result.result_rows
     )
 
-    cols = [
-        c["name"]
-        for c in rs.get(
-            "resultSetMetaData",
-            {},
-        ).get(
-            "rowType",
-            [],
+    if data:
+        result.result_rows = data
+
+    metadata = rs.get(
+        "resultSetMetaData",
+        {},
+    )
+
+    row_type = metadata.get(
+        "rowType",
+        [],
+    )
+
+    columns = []
+
+    for column in row_type:
+
+        if isinstance(column, dict):
+
+            columns.append(
+                column.get(
+                    "name",
+                    "",
+                )
+            )
+
+    if columns:
+        result.column_names = columns
+
+
+# =============================================================================
+# RESPONSE PARSER
+# =============================================================================
+
+def _extract_from_response_payload(
+    data: dict,
+    result: AgentResult,
+) -> None:
+    """
+    Extract useful information from Cortex Agent response.
+    """
+
+    if not isinstance(data, dict):
+        return
+
+    # -------------------------------------------------------------------------
+    # Content
+    # -------------------------------------------------------------------------
+
+    for item in data.get(
+        "content",
+        [],
+    ):
+
+        if not isinstance(item, dict):
+            continue
+
+        item_type = item.get(
+            "type"
         )
-    ]
 
-    if cols:
-        result.column_names = cols
+        # ---------------------------------------------------------------------
+        # Text
+        # ---------------------------------------------------------------------
+
+        if item_type == "text":
+
+            text_value = item.get(
+                "text",
+                "",
+            )
+
+            if text_value.strip():
+                result.answer_text = (
+                    text_value
+                )
+
+            for annotation in item.get(
+                "annotations",
+                [],
+            ):
+
+                result.citations.append(
+                    {
+                        "title": annotation.get(
+                            "doc_title"
+                        ),
+                        "text": annotation.get(
+                            "text"
+                        ),
+                        "type": annotation.get(
+                            "type"
+                        ),
+                    }
+                )
+
+        # ---------------------------------------------------------------------
+        # Table
+        # ---------------------------------------------------------------------
+
+        elif item_type == "table":
+
+            _load_result_set(
+                item.get(
+                    "result_set",
+                    {},
+                ),
+                result,
+            )
+
+            if item.get(
+                "query_id"
+            ):
+                result.query_id = (
+                    item["query_id"]
+                )
+
+        # ---------------------------------------------------------------------
+        # Chart
+        # ---------------------------------------------------------------------
+
+        elif item_type == "chart":
+
+            chart = item.get(
+                "chart",
+                {},
+            )
+
+            spec = chart.get(
+                "chart_spec"
+            )
+
+            if isinstance(
+                spec,
+                str,
+            ):
+
+                try:
+
+                    result.chart_spec = (
+                        json.loads(spec)
+                    )
+
+                except json.JSONDecodeError:
+                    pass
+
+            elif isinstance(
+                spec,
+                dict,
+            ):
+
+                result.chart_spec = spec
+
+        # ---------------------------------------------------------------------
+        # Tool use
+        # ---------------------------------------------------------------------
+
+        elif item_type == "tool_use":
+
+            tool_use = item.get(
+                "tool_use",
+                item,
+            )
+
+            name = (
+                tool_use.get("name")
+                or tool_use.get("type")
+                or "tool"
+            )
+
+            result.tools_used.append(
+                name
+            )
+
+        # ---------------------------------------------------------------------
+        # Tool result
+        # ---------------------------------------------------------------------
+
+        elif item_type == "tool_result":
+
+            tool_result = item.get(
+                "tool_result",
+                item,
+            )
+
+            for sub_content in tool_result.get(
+                "content",
+                [],
+            ):
+
+                if not isinstance(
+                    sub_content,
+                    dict,
+                ):
+                    continue
+
+                payload = sub_content.get(
+                    "json"
+                )
+
+                if not isinstance(
+                    payload,
+                    dict,
+                ):
+                    continue
+
+                if payload.get("sql"):
+                    result.generated_sql = (
+                        payload["sql"]
+                    )
+
+                if payload.get("query_id"):
+                    result.query_id = (
+                        payload["query_id"]
+                    )
+
+                if payload.get(
+                    "result_set"
+                ):
+
+                    _load_result_set(
+                        payload[
+                            "result_set"
+                        ],
+                        result,
+                    )
+
+    # -------------------------------------------------------------------------
+    # Metadata
+    # -------------------------------------------------------------------------
+
+    metadata = data.get(
+        "metadata",
+        {},
+    )
+
+    if metadata.get(
+        "thread_id"
+    ) is not None:
+
+        result.thread_id = (
+            metadata["thread_id"]
+        )
+
+    if metadata.get(
+        "assistant_message_id"
+    ) is not None:
+
+        result.assistant_message_id = (
+            metadata[
+                "assistant_message_id"
+            ]
+        )
+
+    # -------------------------------------------------------------------------
+    # Warnings
+    # -------------------------------------------------------------------------
+
+    for warning in data.get(
+        "warnings",
+        [],
+    ):
+
+        if isinstance(
+            warning,
+            dict,
+        ):
+
+            message = warning.get(
+                "message",
+                "",
+            )
+
+            if message:
+                result.warnings.append(
+                    message
+                )
 
 
-# ============================================================================
+# =============================================================================
 # SSE PARSER
-# ============================================================================
+# =============================================================================
 
 def _parse_sse(
     response: requests.Response,
@@ -434,10 +640,13 @@ def _parse_sse(
     ):
 
         if not raw:
+
             event_type = None
             continue
 
-        if raw.startswith("event:"):
+        if raw.startswith(
+            "event:"
+        ):
 
             event_type = raw[
                 len("event:"):
@@ -445,23 +654,28 @@ def _parse_sse(
 
             continue
 
-        if not raw.startswith("data:"):
+        if not raw.startswith(
+            "data:"
+        ):
             continue
+
+        payload = raw[
+            len("data:"):
+        ].strip()
 
         try:
 
             data = json.loads(
-                raw[
-                    len("data:"):
-                ].strip()
+                payload
             )
 
         except json.JSONDecodeError:
+
             continue
 
-        # --------------------------------------------------------------------
-        # Analyst tool result
-        # --------------------------------------------------------------------
+        # ---------------------------------------------------------------------
+        # Analyst delta
+        # ---------------------------------------------------------------------
 
         if (
             event_type
@@ -474,26 +688,61 @@ def _parse_sse(
             )
 
             if delta.get("sql"):
-                result.generated_sql = delta["sql"]
+                result.generated_sql = (
+                    delta["sql"]
+                )
 
             if delta.get("query_id"):
-                result.query_id = delta["query_id"]
+                result.query_id = (
+                    delta["query_id"]
+                )
 
-            if delta.get("result_set"):
+            if delta.get(
+                "result_set"
+            ):
 
                 _load_result_set(
-                    delta["result_set"],
+                    delta[
+                        "result_set"
+                    ],
                     result,
                 )
 
-        # --------------------------------------------------------------------
+        # ---------------------------------------------------------------------
+        # Text
+        # ---------------------------------------------------------------------
+
+        elif (
+            event_type
+            == "response.text.delta"
+        ):
+
+            text_value = data.get(
+                "text",
+                "",
+            )
+
+            if text_value:
+                result.answer_text += (
+                    text_value
+                )
+
+        # ---------------------------------------------------------------------
         # Table
-        # --------------------------------------------------------------------
+        # ---------------------------------------------------------------------
 
-        elif event_type == "response.table":
+        elif (
+            event_type
+            == "response.table"
+        ):
 
-            if data.get("query_id"):
-                result.query_id = data["query_id"]
+            if data.get(
+                "query_id"
+            ):
+
+                result.query_id = (
+                    data["query_id"]
+                )
 
             _load_result_set(
                 data.get(
@@ -503,56 +752,86 @@ def _parse_sse(
                 result,
             )
 
-        # --------------------------------------------------------------------
+        # ---------------------------------------------------------------------
         # Chart
-        # --------------------------------------------------------------------
+        # ---------------------------------------------------------------------
 
-        elif event_type == "response.chart":
+        elif (
+            event_type
+            == "response.chart"
+        ):
 
             spec = data.get(
                 "chart_spec"
             )
 
-            if isinstance(spec, str):
+            if isinstance(
+                spec,
+                str,
+            ):
 
                 try:
-                    result.chart_spec = json.loads(spec)
+
+                    result.chart_spec = (
+                        json.loads(spec)
+                    )
+
                 except json.JSONDecodeError:
                     pass
 
-            elif isinstance(spec, dict):
+            elif isinstance(
+                spec,
+                dict,
+            ):
 
                 result.chart_spec = spec
 
-        # --------------------------------------------------------------------
-        # Tool use
-        # --------------------------------------------------------------------
+        # ---------------------------------------------------------------------
+        # Tool
+        # ---------------------------------------------------------------------
 
-        elif event_type == "response.tool_use":
+        elif (
+            event_type
+            == "response.tool_use"
+        ):
 
             result.tools_used.append(
-                data.get("name")
-                or data.get("type", "tool")
-            )
-
-        # --------------------------------------------------------------------
-        # Warning
-        # --------------------------------------------------------------------
-
-        elif event_type == "response.warning":
-
-            result.warnings.append(
                 data.get(
-                    "message",
-                    "",
+                    "name"
+                )
+                or data.get(
+                    "type",
+                    "tool",
                 )
             )
 
-        # --------------------------------------------------------------------
-        # Full response
-        # --------------------------------------------------------------------
+        # ---------------------------------------------------------------------
+        # Warning
+        # ---------------------------------------------------------------------
 
-        elif event_type == "response":
+        elif (
+            event_type
+            == "response.warning"
+        ):
+
+            message = data.get(
+                "message",
+                "",
+            )
+
+            if message:
+                result.warnings.append(
+                    message
+                )
+
+        # ---------------------------------------------------------------------
+        # Full response
+        # ---------------------------------------------------------------------
+
+        elif (
+            event_type
+            == "response"
+        ):
 
             _extract_from_response_payload(
                 data,
@@ -562,9 +841,9 @@ def _parse_sse(
     return result
 
 
-# ============================================================================
+# =============================================================================
 # ASK AGENT
-# ============================================================================
+# =============================================================================
 
 def ask_agent(
     question: str,
@@ -574,22 +853,20 @@ def ask_agent(
     stream: bool = False,
     timeout: int = 120,
 ) -> AgentResult:
-    """Send a question to the Cortex Agent."""
+    """
+    Send a question to Cortex Agent.
+    """
 
     try:
 
         c = _cfg()
 
-    except (
-        KeyError,
-        FileNotFoundError,
-    ):
+    except Exception as exc:
 
         return AgentResult(
             error=(
-                "Snowflake secrets are not configured. "
-                "Please configure [snowflake] in "
-                "Streamlit secrets."
+                "Snowflake configuration error: "
+                f"{exc}"
             )
         )
 
@@ -610,7 +887,9 @@ def ask_agent(
 
     if thread_id is not None:
 
-        body["thread_id"] = thread_id
+        body["thread_id"] = (
+            thread_id
+        )
 
         body["parent_message_id"] = (
             parent_message_id
@@ -620,7 +899,7 @@ def ask_agent(
 
     try:
 
-        resp = requests.post(
+        response = requests.post(
             _run_url(c),
             headers=_headers(
                 c,
@@ -631,48 +910,69 @@ def ask_agent(
             timeout=timeout,
         )
 
-        resp.raise_for_status()
+        response.raise_for_status()
 
-    except requests.HTTPError as e:
+    except requests.HTTPError as exc:
 
         detail = ""
 
         try:
-            detail = resp.text[:400]
+            detail = response.text[
+                :1000
+            ]
+
         except Exception:
             pass
 
         return AgentResult(
             error=(
-                f"Agent request failed "
-                f"({resp.status_code}): "
-                f"{detail or e}"
+                "Agent request failed "
+                f"({response.status_code}): "
+                f"{detail or exc}"
             )
         )
 
-    except requests.RequestException as e:
+    except requests.RequestException as exc:
 
         return AgentResult(
-            error=f"Could not reach Snowflake: {e}"
+            error=(
+                "Could not reach Snowflake: "
+                f"{exc}"
+            )
         )
 
     if stream:
 
-        return _parse_sse(resp)
+        return _parse_sse(
+            response
+        )
 
     result = AgentResult()
 
+    try:
+
+        payload = response.json()
+
+    except ValueError as exc:
+
+        result.error = (
+            "Snowflake returned an invalid "
+            f"JSON response: {exc}"
+        )
+
+        return result
+
     _extract_from_response_payload(
-        resp.json(),
+        payload,
         result,
     )
 
     return result
 
 
-# ============================================================================
+# =============================================================================
 # STREAMING AGENT
-# ============================================================================
+# =============================================================================
 
 def ask_agent_stream(
     question: str,
@@ -681,19 +981,28 @@ def ask_agent_stream(
     parent_message_id: int | None = None,
     timeout: int = 300,
 ):
-    """Generator for live Cortex Agent answer streaming."""
+    """
+    Generator used by Streamlit for live Agent streaming.
+
+    The final AgentResult is exposed as:
+        ask_agent_stream.result
+    """
+
+    result = AgentResult()
 
     try:
 
         c = _cfg()
 
-    except (
-        KeyError,
-        FileNotFoundError,
-    ):
+    except Exception as exc:
 
-        ask_agent_stream.result = AgentResult(
-            error="Snowflake secrets are not configured."
+        result.error = (
+            "Snowflake configuration error: "
+            f"{exc}"
+        )
+
+        ask_agent_stream.result = (
+            result
         )
 
         return
@@ -715,7 +1024,9 @@ def ask_agent_stream(
 
     if thread_id is not None:
 
-        body["thread_id"] = thread_id
+        body["thread_id"] = (
+            thread_id
+        )
 
         body["parent_message_id"] = (
             parent_message_id
@@ -723,11 +1034,9 @@ def ask_agent_stream(
             else 0
         )
 
-    result = AgentResult()
-
     try:
 
-        resp = requests.post(
+        response = requests.post(
             _run_url(c),
             headers=_headers(
                 c,
@@ -738,31 +1047,61 @@ def ask_agent_stream(
             timeout=timeout,
         )
 
-        resp.raise_for_status()
+        response.raise_for_status()
 
-    except requests.RequestException as e:
+    except requests.HTTPError as exc:
+
+        detail = ""
+
+        try:
+            detail = response.text[
+                :1000
+            ]
+
+        except Exception:
+            pass
 
         result.error = (
-            f"Could not reach Snowflake: {e}"
+            "Agent request failed "
+            f"({response.status_code}): "
+            f"{detail or exc}"
         )
 
-        ask_agent_stream.result = result
+        ask_agent_stream.result = (
+            result
+        )
 
         return
 
-    resp.encoding = "utf-8"
+    except requests.RequestException as exc:
+
+        result.error = (
+            "Could not reach Snowflake: "
+            f"{exc}"
+        )
+
+        ask_agent_stream.result = (
+            result
+        )
+
+        return
+
+    response.encoding = "utf-8"
 
     event_type = None
 
-    for raw in resp.iter_lines(
+    for raw in response.iter_lines(
         decode_unicode=True
     ):
 
         if not raw:
+
             event_type = None
             continue
 
-        if raw.startswith("event:"):
+        if raw.startswith(
+            "event:"
+        ):
 
             event_type = raw[
                 len("event:"):
@@ -770,25 +1109,34 @@ def ask_agent_stream(
 
             continue
 
-        if not raw.startswith("data:"):
+        if not raw.startswith(
+            "data:"
+        ):
+
             continue
+
+        payload = raw[
+            len("data:"):
+        ].strip()
 
         try:
 
             data = json.loads(
-                raw[
-                    len("data:"):
-                ].strip()
+                payload
             )
 
         except json.JSONDecodeError:
+
             continue
 
-        # --------------------------------------------------------------------
-        # Text streaming
-        # --------------------------------------------------------------------
+        # ---------------------------------------------------------------------
+        # Text delta
+        # ---------------------------------------------------------------------
 
-        if event_type == "response.text.delta":
+        if (
+            event_type
+            == "response.text.delta"
+        ):
 
             chunk = data.get(
                 "text",
@@ -796,11 +1144,16 @@ def ask_agent_stream(
             )
 
             if chunk:
+
+                result.answer_text += (
+                    chunk
+                )
+
                 yield chunk
 
-        # --------------------------------------------------------------------
+        # ---------------------------------------------------------------------
         # Analyst result
-        # --------------------------------------------------------------------
+        # ---------------------------------------------------------------------
 
         elif (
             event_type
@@ -813,26 +1166,42 @@ def ask_agent_stream(
             )
 
             if delta.get("sql"):
-                result.generated_sql = delta["sql"]
+                result.generated_sql = (
+                    delta["sql"]
+                )
 
             if delta.get("query_id"):
-                result.query_id = delta["query_id"]
+                result.query_id = (
+                    delta["query_id"]
+                )
 
-            if delta.get("result_set"):
+            if delta.get(
+                "result_set"
+            ):
 
                 _load_result_set(
-                    delta["result_set"],
+                    delta[
+                        "result_set"
+                    ],
                     result,
                 )
 
-        # --------------------------------------------------------------------
+        # ---------------------------------------------------------------------
         # Table
-        # --------------------------------------------------------------------
+        # ---------------------------------------------------------------------
 
-        elif event_type == "response.table":
+        elif (
+            event_type
+            == "response.table"
+        ):
 
-            if data.get("query_id"):
-                result.query_id = data["query_id"]
+            if data.get(
+                "query_id"
+            ):
+
+                result.query_id = (
+                    data["query_id"]
+                )
 
             _load_result_set(
                 data.get(
@@ -842,57 +1211,128 @@ def ask_agent_stream(
                 result,
             )
 
-        # --------------------------------------------------------------------
+        # ---------------------------------------------------------------------
         # Chart
-        # --------------------------------------------------------------------
+        # ---------------------------------------------------------------------
 
-        elif event_type == "response.chart":
+        elif (
+            event_type
+            == "response.chart"
+        ):
 
             spec = data.get(
                 "chart_spec"
             )
 
-            if isinstance(spec, str):
+            if isinstance(
+                spec,
+                str,
+            ):
 
                 try:
-                    result.chart_spec = json.loads(spec)
+
+                    result.chart_spec = (
+                        json.loads(spec)
+                    )
+
                 except json.JSONDecodeError:
                     pass
 
-            elif isinstance(spec, dict):
+            elif isinstance(
+                spec,
+                dict,
+            ):
 
                 result.chart_spec = spec
 
-        # --------------------------------------------------------------------
-        # Full response
-        # --------------------------------------------------------------------
+        # ---------------------------------------------------------------------
+        # Tool
+        # ---------------------------------------------------------------------
 
-        elif event_type == "response":
+        elif (
+            event_type
+            == "response.tool_use"
+        ):
+
+            result.tools_used.append(
+                data.get(
+                    "name"
+                )
+                or data.get(
+                    "type",
+                    "tool",
+                )
+            )
+
+        # ---------------------------------------------------------------------
+        # Warning
+        # ---------------------------------------------------------------------
+
+        elif (
+            event_type
+            == "response.warning"
+        ):
+
+            message = data.get(
+                "message",
+                "",
+            )
+
+            if message:
+                result.warnings.append(
+                    message
+                )
+
+        # ---------------------------------------------------------------------
+        # Full response
+        # ---------------------------------------------------------------------
+
+        elif (
+            event_type
+            == "response"
+        ):
 
             _extract_from_response_payload(
                 data,
                 result,
             )
 
-    ask_agent_stream.result = result
+    ask_agent_stream.result = (
+        result
+    )
 
 
-# ============================================================================
+# =============================================================================
 # DIRECT SQL
-# ============================================================================
+# =============================================================================
+#
+# IMPORTANT:
+#
+# This section does NOT use:
+#   - PAT
+#   - private key
+#   - JWT
+#   - SQL REST API
+#
+# It uses:
+#   Snowflake Python Connector
+#   username + password
+# =============================================================================
 
 @st.cache_resource
 def _get_snowflake_connection():
-    """Create a Snowflake connector connection using key-pair auth."""
+    """
+    Create Snowflake connection using username/password.
+
+    This is completely independent of Cortex Agent JWT authentication.
+    """
 
     c = _cfg()
 
     return snowflake.connector.connect(
         account=c["account"],
         user=c["user"],
-        authenticator="SNOWFLAKE_JWT",
-        private_key=c["private_key"],
-        private_key_file_pwd=c["private_key_passphrase"],
+        password=c["password"],
         warehouse=c["warehouse"],
         database=c["database"],
         schema=c["schema"],
@@ -903,48 +1343,66 @@ def run_sql(
     statement: str,
     timeout: int = 60,
 ) -> tuple[list[str], list[list]]:
-    """Execute SQL through the Snowflake Python Connector.
+    """
+    Execute SQL using Snowflake Python Connector.
 
-    Authentication uses Snowflake key-pair authentication.
-    No PAT or SQL REST API is used.
+    Authentication:
+        username + password
+
+    No PAT.
+    No private key.
+    No JWT.
     """
 
     conn = _get_snowflake_connection()
 
-    cur = conn.cursor()
+    cursor = conn.cursor()
 
     try:
 
-        cur.execute(
+        cursor.execute(
             statement,
             timeout=timeout,
         )
 
+        if cursor.description is None:
+
+            return (
+                [],
+                [],
+            )
+
         columns = [
-            desc[0]
-            for desc in cur.description
+            description[0]
+            for description
+            in cursor.description
         ]
 
-        rows = cur.fetchall()
+        rows = cursor.fetchall()
 
         return (
             columns,
-            [list(row) for row in rows],
+            [
+                list(row)
+                for row in rows
+            ],
         )
 
     finally:
 
-        cur.close()
+        cursor.close()
 
 
-# ============================================================================
+# =============================================================================
 # GOVERNANCE
-# ============================================================================
+# =============================================================================
 
 def call_governance(
     metric_query: str,
 ) -> dict:
-    """Return governed metric definition JSON."""
+    """
+    Return governed metric definition JSON.
+    """
 
     safe = metric_query.replace(
         "'",
@@ -952,22 +1410,45 @@ def call_governance(
     )
 
     _, rows = run_sql(
-        f"SELECT GET_METRIC_GOVERNANCE('{safe}')"
+        f"""
+        SELECT GET_METRIC_GOVERNANCE(
+            '{safe}'
+        )
+        """
     )
 
-    if rows and rows[0] and rows[0][0]:
+    if (
+        rows
+        and rows[0]
+        and rows[0][0]
+    ):
 
         try:
 
-            return json.loads(
-                rows[0][0]
-            )
+            value = rows[0][0]
+
+            if isinstance(
+                value,
+                str,
+            ):
+
+                return json.loads(
+                    value
+                )
+
+            if isinstance(
+                value,
+                dict,
+            ):
+
+                return value
 
         except (
             json.JSONDecodeError,
             TypeError,
         ):
-            return {}
+
+            pass
 
     return {}
 
@@ -977,77 +1458,128 @@ def check_persona_consistency(
     plant: str | None = None,
     period: str | None = None,
 ) -> dict:
-    """Return persona-consistency proof JSON."""
+    """
+    Return persona-consistency proof JSON.
+    """
 
     safe = metric_query.replace(
         "'",
         "''",
     )
 
-    p = (
-        f"'{plant}'"
-        if plant
-        else "NULL"
-    )
+    if plant:
 
-    pe = (
-        f"'{period}'"
-        if period
-        else "NULL"
-    )
+        safe_plant = plant.replace(
+            "'",
+            "''",
+        )
+
+        plant_sql = (
+            f"'{safe_plant}'"
+        )
+
+    else:
+
+        plant_sql = "NULL"
+
+    if period:
+
+        safe_period = period.replace(
+            "'",
+            "''",
+        )
+
+        period_sql = (
+            f"'{safe_period}'"
+        )
+
+    else:
+
+        period_sql = "NULL"
 
     _, rows = run_sql(
         f"""
         SELECT CHECK_PERSONA_CONSISTENCY(
             '{safe}',
-            {p},
-            {pe}
+            {plant_sql},
+            {period_sql}
         )
         """
     )
 
-    if rows and rows[0] and rows[0][0]:
+    if (
+        rows
+        and rows[0]
+        and rows[0][0]
+    ):
 
         try:
 
-            return json.loads(
-                rows[0][0]
-            )
+            value = rows[0][0]
+
+            if isinstance(
+                value,
+                str,
+            ):
+
+                return json.loads(
+                    value
+                )
+
+            if isinstance(
+                value,
+                dict,
+            ):
+
+                return value
 
         except (
             json.JSONDecodeError,
             TypeError,
         ):
-            return {}
+
+            pass
 
     return {}
 
 
-# ============================================================================
+# =============================================================================
 # THREAD MANAGEMENT
-# ============================================================================
+# =============================================================================
 
 ORIGIN_APP = "sc_copilot"
 
 
 def _thread_headers() -> dict:
 
-    token, token_type = _bearer()
+    token, token_type = (
+        _bearer()
+    )
 
     return {
-        "Authorization": f"Bearer {token}",
+        "Authorization": (
+            f"Bearer {token}"
+        ),
         "Content-Type": "application/json",
         "Accept": "application/json",
-        "X-Snowflake-Authorization-Token-Type": token_type,
+        "X-Snowflake-Authorization-Token-Type": (
+            token_type
+        ),
     }
 
 
 def create_thread() -> int:
+    """
+    Create Cortex conversation thread.
+    """
 
     c = _cfg()
 
-    resp = requests.post(
-        f"{c['account_url']}/api/v2/cortex/threads",
+    response = requests.post(
+        (
+            f"{c['account_url']}"
+            "/api/v2/cortex/threads"
+        ),
         headers=_thread_headers(),
         json={
             "origin_application": ORIGIN_APP
@@ -1055,19 +1587,27 @@ def create_thread() -> int:
         timeout=30,
     )
 
-    resp.raise_for_status()
+    response.raise_for_status()
+
+    payload = response.json()
 
     return int(
-        resp.json()["thread_id"]
+        payload["thread_id"]
     )
 
 
 def list_threads() -> list[dict]:
+    """
+    List existing Cortex threads.
+    """
 
     c = _cfg()
 
-    resp = requests.get(
-        f"{c['account_url']}/api/v2/cortex/threads",
+    response = requests.get(
+        (
+            f"{c['account_url']}"
+            "/api/v2/cortex/threads"
+        ),
         headers=_thread_headers(),
         params={
             "origin_application": ORIGIN_APP
@@ -1075,12 +1615,33 @@ def list_threads() -> list[dict]:
         timeout=30,
     )
 
-    resp.raise_for_status()
+    response.raise_for_status()
 
-    threads = resp.json() or []
+    payload = response.json()
+
+    if isinstance(
+        payload,
+        dict,
+    ):
+
+        threads = payload.get(
+            "threads",
+            [],
+        )
+
+    elif isinstance(
+        payload,
+        list,
+    ):
+
+        threads = payload
+
+    else:
+
+        threads = []
 
     threads.sort(
-        key=lambda t: t.get(
+        key=lambda item: item.get(
             "updated_on",
             0,
         ),
@@ -1094,12 +1655,17 @@ def get_thread_messages(
     thread_id: int,
     page_size: int = 100,
 ) -> list[dict]:
-    """Fetch thread messages in chronological order."""
+    """
+    Fetch thread messages in chronological order.
+    """
 
     c = _cfg()
 
-    resp = requests.get(
-        f"{c['account_url']}/api/v2/cortex/threads/{thread_id}",
+    response = requests.get(
+        (
+            f"{c['account_url']}"
+            f"/api/v2/cortex/threads/{thread_id}"
+        ),
         headers=_thread_headers(),
         params={
             "page_size": page_size,
@@ -1108,27 +1674,44 @@ def get_thread_messages(
         timeout=30,
     )
 
-    resp.raise_for_status()
+    response.raise_for_status()
 
-    msgs = resp.json().get(
-        "messages",
-        [],
-    )
+    payload = response.json()
 
-    msgs.reverse()
+    if isinstance(
+        payload,
+        dict,
+    ):
 
-    return msgs
+        messages = payload.get(
+            "messages",
+            [],
+        )
+
+    else:
+
+        messages = []
+
+    messages.reverse()
+
+    return messages
 
 
 def set_thread_name(
     thread_id: int,
     name: str,
 ) -> None:
+    """
+    Set Cortex thread name.
+    """
 
     c = _cfg()
 
-    resp = requests.post(
-        f"{c['account_url']}/api/v2/cortex/threads/{thread_id}",
+    response = requests.post(
+        (
+            f"{c['account_url']}"
+            f"/api/v2/cortex/threads/{thread_id}"
+        ),
         headers=_thread_headers(),
         json={
             "thread_name": name[:64]
@@ -1136,34 +1719,41 @@ def set_thread_name(
         timeout=30,
     )
 
-    resp.raise_for_status()
+    response.raise_for_status()
 
 
 def delete_thread(
     thread_id: int,
 ) -> None:
+    """
+    Delete Cortex thread.
+    """
 
     c = _cfg()
 
-    resp = requests.delete(
-        f"{c['account_url']}/api/v2/cortex/threads/{thread_id}",
+    response = requests.delete(
+        (
+            f"{c['account_url']}"
+            f"/api/v2/cortex/threads/{thread_id}"
+        ),
         headers=_thread_headers(),
         timeout=30,
     )
 
-    resp.raise_for_status()
+    response.raise_for_status()
 
 
-# ============================================================================
-# VOICE INPUT — DISABLED
-# ============================================================================
+# =============================================================================
+# VOICE INPUT
+# =============================================================================
 #
-# Voice functionality has been intentionally removed.
+# Intentionally disabled.
 #
-# There is no:
+# No:
 #   - audio upload
 #   - Snowflake voice stage
 #   - AI_TRANSCRIBE
-#   - transcribe_audio()
 #   - Snowpark voice session
+#   - transcribe_audio()
 #
+# =============================================================================
