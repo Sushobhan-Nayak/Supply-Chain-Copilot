@@ -12,3 +12,6 @@ dependencies = [
     "snowflake-snowpark-python",
     "streamlit-flow-component==1.6.1",
 ]
+
+[tool.poetry]
+package-mode = false
