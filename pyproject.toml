@@ -1,0 +1,14 @@
+[project]
+name = "supply-chain-copilot"
+version = "0.1.0"
+description = "Supply Chain Copilot — Streamlit UI over Snowflake Cortex Agent"
+requires-python = ">=3.11"
+dependencies = [
+    "streamlit>=1.42",
+    "pandas",
+    "altair",
+    "graphviz",
+    "requests",
+    "snowflake-snowpark-python",
+    "streamlit-flow-component==1.6.1",
+]

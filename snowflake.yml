@@ -1,0 +1,25 @@
+definition_version: 2
+entities:
+  streamlit_app:
+    type: streamlit
+    main_file: streamlit_app.py
+    artifacts:
+      - pyproject.toml
+      - streamlit_app.py
+      - .streamlit/config.toml
+    identifier:
+      database: SUPPLY_CHAIN_ONTOLOGY
+      schema: CORE
+      name: SUPPLY_CHAIN_COPILOT_HCK_APP
+    title: SUPPLY_CHAIN_COPILOT_HCK_APP
+    query_warehouse: COMPUTE_WH
+    compute_pool: SYSTEM_COMPUTE_POOL_CPU
+    run_mode: SpcsOnly
+    execute_as: OWNER
+    external_access_integrations:
+      - SC_COPILOT_EAI
+    artifact_repositories:
+      - SNOWFLAKE.SNOWPARK.PYPI_SHARED_REPOSITORY
+    sharing:
+      - role: PUBLIC
+        with_grant_option: true
