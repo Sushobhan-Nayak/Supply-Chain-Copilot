@@ -2,7 +2,7 @@
 name = "supply-chain-copilot"
 version = "0.1.0"
 description = "Supply Chain Copilot — Streamlit UI over Snowflake Cortex Agent"
-requires-python = ">=3.14"
+requires-python = ">=3.14,<3.15"
 dependencies = [
     "streamlit>=1.42",
     "pandas",
