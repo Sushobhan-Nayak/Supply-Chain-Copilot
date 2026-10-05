@@ -62,233 +62,624 @@ def _sc_dark_theme() -> alt.theme.ThemeConfig:
 #   .st-key-{key} = the reliable per-widget selector (from a widget's key= arg).
 st.markdown("""
 <style>
-    #MainMenu { visibility: hidden !important; }
-    footer { visibility: hidden !important; }
+    #MainMenu {
+        visibility: hidden !important;
+    }
 
-    .stApp, body {
+    footer {
+        visibility: hidden !important;
+    }
+
+    /* Hide Streamlit's top header / toolbar */
+    header[data-testid="stHeader"],
+    [data-testid="stToolbar"] {
+        display: none !important;
+    }
+
+    /* Remove the space reserved for the hidden header */
+    [data-testid="stAppViewContainer"] {
+        padding-top: 0 !important;
+        gap: 0 !important;
+        background: #0a1929 !important;
+    }
+
+    .stAppViewContainer > .main {
+        padding-top: 0 !important;
+    }
+
+    /* Global app theme */
+    .stApp,
+    body {
         background-color: #0a1929 !important;
         color: #e3f0ff !important;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     }
-    [data-testid="stSidebarResizeHandle"] { display: none !important; }
-    [data-testid="stAppViewContainer"] { gap: 0 !important; background: #0a1929 !important; }
-    [data-testid="stSidebar"] { margin-right: 0 !important; }
-    [data-testid="stMain"] { padding-left: 0 !important; margin-left: 0 !important; background: #0a1929 !important; }
-    [data-testid="stMainBlockContainer"], .block-container {
+
+    [data-testid="stSidebarResizeHandle"] {
+        display: none !important;
+    }
+
+    [data-testid="stSidebar"] {
+        margin-right: 0 !important;
+        background: #061320 !important;
+        border-right: 1px solid #2a4a6b !important;
+    }
+
+    [data-testid="stMain"] {
+        padding-left: 0 !important;
+        margin-left: 0 !important;
+        background: #0a1929 !important;
+    }
+
+    [data-testid="stMainBlockContainer"],
+    .block-container {
         max-width: 100% !important;
-        padding-top: 1.25rem !important; padding-bottom: 2rem !important;
-        padding-left: 2rem !important; padding-right: 2rem !important;
+        padding-top: 1.25rem !important;
+        padding-bottom: 2rem !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
     }
 
+    /* Navigation */
     .nav-group {
-        font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
-        color: #5f7a99; margin: 18px 0 4px 2px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #5f7a99;
+        margin: 18px 0 4px 2px;
     }
 
-    [data-testid="stSidebar"] { background: #061320 !important; border-right: 1px solid #2a4a6b !important; }
-    [data-testid="stSidebar"] [role="radiogroup"] { gap: 2px !important; }
-    [data-testid="stSidebar"] [role="radiogroup"] label {
-        display: flex !important; align-items: center !important;
-        padding: 8px 12px !important; border-radius: 8px !important; margin: 0 !important;
-        width: 100% !important; cursor: pointer;
+    [data-testid="stSidebar"] [role="radiogroup"] {
+        gap: 2px !important;
     }
-    [data-testid="stSidebar"] [role="radiogroup"] input { display: none !important; }
+
+    [data-testid="stSidebar"] [role="radiogroup"] label {
+        display: flex !important;
+        align-items: center !important;
+        padding: 8px 12px !important;
+        border-radius: 8px !important;
+        margin: 0 !important;
+        width: 100% !important;
+        cursor: pointer;
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] input {
+        display: none !important;
+    }
+
     [data-testid="stSidebar"] [data-testid="stRadioOption"] > div > div:first-of-type {
         display: none !important;
     }
-    [data-testid="stSidebar"] [role="radiogroup"] label:hover { background: #1a3a5c !important; }
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) { background: #1a3a5c !important; }
+
+    [data-testid="stSidebar"] [role="radiogroup"] label:hover {
+        background: #1a3a5c !important;
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
+        background: #1a3a5c !important;
+    }
+
     [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {
-        color: #4d9fff !important; font-weight: 600 !important;
+        color: #4d9fff !important;
+        font-weight: 600 !important;
     }
-    [data-testid="stSidebar"] [role="radiogroup"] p { font-size: 14px !important; color: #b8ccea !important; }
-    [data-testid="stSidebar"] .brand-container { margin-bottom: 16px; }
+
+    [data-testid="stSidebar"] [role="radiogroup"] p {
+        font-size: 14px !important;
+        color: #b8ccea !important;
+    }
+
+    [data-testid="stSidebar"] .brand-container {
+        margin-bottom: 16px;
+    }
+
+    /* New chat button */
     .st-key-new_chat button {
-        background: #132f4c !important; color: #4d9fff !important; font-weight: 600 !important;
-        border: 1.5px solid #4d9fff !important; border-radius: 8px !important; font-size: 13px !important;
+        background: #132f4c !important;
+        color: #4d9fff !important;
+        font-weight: 600 !important;
+        border: 1.5px solid #4d9fff !important;
+        border-radius: 8px !important;
+        font-size: 13px !important;
     }
-    .st-key-new_chat button:hover { background: #1a3a5c !important; border-color: #79b8ff !important; }
-    .hist-empty { font-size: 12px; color: #5f7a99; padding: 8px 4px; font-style: italic; }
-    [data-testid="stSidebar"] .st-key-hist_active button { background: #1a3a5c !important; color: #4d9fff !important; }
 
-    .brand-container { display: flex; align-items: center; gap: 11px; font-weight: 700; font-size: 19px; color: #e3f0ff !important; }
+    .st-key-new_chat button:hover {
+        background: #1a3a5c !important;
+        border-color: #79b8ff !important;
+    }
+
+    .hist-empty {
+        font-size: 12px;
+        color: #5f7a99;
+        padding: 8px 4px;
+        font-style: italic;
+    }
+
+    [data-testid="stSidebar"] .st-key-hist_active button {
+        background: #1a3a5c !important;
+        color: #4d9fff !important;
+    }
+
+    /* Brand */
+    .brand-container {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        font-weight: 700;
+        font-size: 19px;
+        color: #e3f0ff !important;
+    }
+
     .brand-logo {
-        width: 34px; height: 34px; border-radius: 9px; background: #4d9fff !important;
-        color: #0a1929 !important; display: flex; align-items: center; justify-content: center;
-        font-size: 14px; font-weight: 700; flex-shrink: 0;
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        background: #4d9fff !important;
+        color: #0a1929 !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: 700;
+        flex-shrink: 0;
     }
 
-    /* Segmented tabs (Chat / Ontology) via st.pills in the center */
+    /* Segmented tabs */
     [data-testid="stPills"] button {
-        border-radius: 20px !important; border: 0.5px solid #2a4a6b !important;
-        background: #132f4c !important; color: #8ba3c0 !important;
-        font-size: 13px !important; font-weight: 500 !important;
+        border-radius: 20px !important;
+        border: 0.5px solid #2a4a6b !important;
+        background: #132f4c !important;
+        color: #8ba3c0 !important;
+        font-size: 13px !important;
+        font-weight: 500 !important;
     }
+
     [data-testid="stPills"] button[aria-selected="true"],
     [data-testid="stPills"] button[kind="pillsActive"] {
-        background: #1a3a5c !important; color: #4d9fff !important;
-        font-weight: 600 !important; border-color: transparent !important;
+        background: #1a3a5c !important;
+        color: #4d9fff !important;
+        font-weight: 600 !important;
+        border-color: transparent !important;
     }
 
-    /* KPI cards: subtle elevated containment (the one place a card reads well) */
+    /* KPI cards */
     .kpi-inner {
-        background: #132f4c; border: 1px solid #2a4a6b; border-radius: 10px;
-        border-left: 3px solid #4d9fff; padding: 12px 16px;
+        background: #132f4c;
+        border: 1px solid #2a4a6b;
+        border-radius: 10px;
+        border-left: 3px solid #4d9fff;
+        padding: 12px 16px;
     }
-    .kpi-inner .label { font-size: 12px; color: #8ba3c0 !important; }
-    .kpi-inner .value { font-size: 24px; font-weight: 600; color: #e3f0ff !important; margin-top: 2px; }
 
-    /* Full-width divider separating the KPI band from the content columns */
-    .band-rule { height: 1px; background: #2a4a6b; margin: 20px 0 18px; }
+    .kpi-inner .label {
+        font-size: 12px;
+        color: #8ba3c0 !important;
+    }
 
-    /* Dashboard: big page heading + chart cards with elevated title bars. */
+    .kpi-inner .value {
+        font-size: 24px;
+        font-weight: 600;
+        color: #e3f0ff !important;
+        margin-top: 2px;
+    }
+
+    /* Dashboard divider */
+    .band-rule {
+        height: 1px;
+        background: #2a4a6b;
+        margin: 20px 0 18px;
+    }
+
+    /* Dashboard heading */
     .dash-heading {
-        font-size: 28px; font-weight: 700; color: #e3f0ff !important;
-        margin: 4px 0 20px; letter-spacing: -0.01em;
+        font-size: 28px;
+        font-weight: 700;
+        color: #e3f0ff !important;
+        margin: 4px 0 20px;
+        letter-spacing: -0.01em;
     }
-    [class*="st-key-chartcard_"] {
-        border: 1px solid #2a4a6b !important; border-radius: 12px !important;
-        background: #132f4c !important; box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
-        padding: 0 0 14px !important; overflow: hidden !important; margin-bottom: 6px !important;
-    }
-    .chart-card-title {
-        background: #1a3a5c; border-bottom: 1px solid #2a4a6b;
-        margin: 0 0 14px; padding: 12px 16px;
-        font-size: 15px; font-weight: 700; color: #e3f0ff !important; text-align: center;
-    }
-    [class*="st-key-chartcard_"] [data-testid="stElementContainer"] { padding: 0 14px !important; }
-    [class*="st-key-chartcard_"] .chart-card-title { padding: 12px 16px !important; }
 
-    /* Open 3-column: thin vertical hairlines between columns.
-       Only the MAIN layout columns get the divider — use the direct-child
-       combinator so nested per-row columns (e.g. history delete columns) are
-       NOT affected (that stray border was drawing a line on every chat row). */
+    /* Dashboard chart cards */
+    [class*="st-key-chartcard_"] {
+        border: 1px solid #2a4a6b !important;
+        border-radius: 12px !important;
+        background: #132f4c !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
+        padding: 0 0 14px !important;
+        overflow: hidden !important;
+        margin-bottom: 6px !important;
+    }
+
+    .chart-card-title {
+        background: #1a3a5c;
+        border-bottom: 1px solid #2a4a6b;
+        margin: 0 0 14px;
+        padding: 12px 16px;
+        font-size: 15px;
+        font-weight: 700;
+        color: #e3f0ff !important;
+        text-align: center;
+    }
+
+    [class*="st-key-chartcard_"] [data-testid="stElementContainer"] {
+        padding: 0 14px !important;
+    }
+
+    [class*="st-key-chartcard_"] .chart-card-title {
+        padding: 12px 16px !important;
+    }
+
+    /* Main 3-column layout */
     .st-key-main_row > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(2),
     .st-key-main_row > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(3) {
         border-left: 1px solid #2a4a6b !important;
         padding-left: 24px !important;
     }
 
-    /* Left Rail Panel (Chat view only). Direct-child combinator so ONLY the
-       main rail column is styled — NOT the nested per-row columns (conversation
-       + delete), which also match ":first-child:nth-last-child(2)" and were
-       wrongly getting the rail's border/padding, drawing a line on every row. */
+    /* Left rail panel */
     .st-key-main_row > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child:nth-last-child(2) {
         background-color: #132f4c !important;
         border-right: 1px solid #2a4a6b !important;
         border-radius: 12px !important;
         padding: 16px !important;
     }
+
     .st-key-main_row > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child:nth-last-child(2) + [data-testid="stColumn"] {
         border-left: none !important;
         padding-left: 16px !important;
     }
 
-    /* History (left column). Left padding (9px) matches the history buttons'
-       left padding so label + button text share one left edge. */
+    /* History */
     .col-label {
-        font-size: 11px; color: #8ba3c0 !important; text-transform: uppercase;
-        letter-spacing: 0.04em; padding-left: 9px;
-        margin: 20px 0 8px; font-weight: 600;
+        font-size: 11px;
+        color: #8ba3c0 !important;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding-left: 9px;
+        margin: 20px 0 8px;
+        font-weight: 600;
     }
-    /* History/nav buttons: quiet rows */
-    [data-testid="stButton"] button {
-        border-radius: 8px !important; border: 0.5px solid transparent !important;
-        background: transparent !important; color: #b8ccea !important;
-        font-size: 13px !important; font-weight: 500 !important;
-        text-align: left !important; justify-content: flex-start !important;
-        padding: 7px 9px !important; min-height: 0 !important;
-    }
-    [data-testid="stButton"] button:hover { background: #1a3a5c !important; color: #e3f0ff !important; }
 
-    /* Sidebar history rows: conversation label left-aligned, delete button quiet/icon-only. */
+    /* General buttons */
+    [data-testid="stButton"] button {
+        border-radius: 8px !important;
+        border: 0.5px solid transparent !important;
+        background: transparent !important;
+        color: #b8ccea !important;
+        font-size: 13px !important;
+        font-weight: 500 !important;
+        text-align: left !important;
+        justify-content: flex-start !important;
+        padding: 7px 9px !important;
+        min-height: 0 !important;
+    }
+
+    [data-testid="stButton"] button:hover {
+        background: #1a3a5c !important;
+        color: #e3f0ff !important;
+    }
+
+    /* Sidebar history rows */
     [data-testid="stSidebar"] [class*="st-key-hist_"] button,
     [data-testid="stSidebar"] [class*="st-key-hist_"] button * {
-        justify-content: flex-start !important; text-align: left !important;
+        justify-content: flex-start !important;
+        text-align: left !important;
         font-size: 13px !important;
     }
+
     [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] {
-        flex-wrap: nowrap !important; gap: 2px !important; align-items: center !important;
-    }
-    [class*="st-key-del_"] button {
-        background: transparent !important; border: none !important;
-        padding: 4px 6px !important; min-height: 0 !important;
-        opacity: 0.4 !important; font-size: 13px !important;
-    }
-    [class*="st-key-del_"] button:hover {
-        opacity: 1 !important; background: #3d1a16 !important; color: #ff6b5a !important;
+        flex-wrap: nowrap !important;
+        gap: 2px !important;
+        align-items: center !important;
     }
 
-    /* Chat: user bubble right, assistant full-width */
-    .user-row { display: flex; justify-content: flex-end; margin: 8px 0 16px; }
-    .user-bubble {
-        background: #4d9fff !important; color: #0a1929 !important;
-        padding: 11px 15px; border-radius: 16px 16px 4px 16px;
-        font-size: 14px; line-height: 1.5; max-width: 85%;
+    /* Delete buttons */
+    [class*="st-key-del_"] button {
+        background: transparent !important;
+        border: none !important;
+        padding: 4px 6px !important;
+        min-height: 0 !important;
+        opacity: 0.4 !important;
+        font-size: 13px !important;
     }
-    .assistant-answer-value { font-size: 32px; font-weight: 600; color: #e3f0ff !important; letter-spacing: -0.01em; }
-    .assistant-delta { font-size: 12px; color: #3dd598 !important; background: #153a2a !important; padding: 2px 9px; border-radius: 20px; font-weight: 500; margin-left: 8px; }
-    .assistant-sub { font-size: 13px; color: #8ba3c0 !important; margin-top: 5px; }
-    .assistant-prose { font-size: 14px; color: #e3f0ff !important; line-height: 1.6; margin-top: 12px; }
-    .empty-greeting { text-align: center; color: #8ba3c0; font-size: 14px; margin: 22vh 0 30px; }
-    .empty-greeting .big { display: block; font-size: 24px; font-weight: 600; color: #e3f0ff; margin-bottom: 6px; }
+
+    [class*="st-key-del_"] button:hover {
+        opacity: 1 !important;
+        background: #3d1a16 !important;
+        color: #ff6b5a !important;
+    }
+
+    /* Chat */
+    .user-row {
+        display: flex;
+        justify-content: flex-end;
+        margin: 8px 0 16px;
+    }
+
+    .user-bubble {
+        background: #4d9fff !important;
+        color: #0a1929 !important;
+        padding: 11px 15px;
+        border-radius: 16px 16px 4px 16px;
+        font-size: 14px;
+        line-height: 1.5;
+        max-width: 85%;
+    }
+
+    .assistant-answer-value {
+        font-size: 32px;
+        font-weight: 600;
+        color: #e3f0ff !important;
+        letter-spacing: -0.01em;
+    }
+
+    .assistant-delta {
+        font-size: 12px;
+        color: #3dd598 !important;
+        background: #153a2a !important;
+        padding: 2px 9px;
+        border-radius: 20px;
+        font-weight: 500;
+        margin-left: 8px;
+    }
+
+    .assistant-sub {
+        font-size: 13px;
+        color: #8ba3c0 !important;
+        margin-top: 5px;
+    }
+
+    .assistant-prose {
+        font-size: 14px;
+        color: #e3f0ff !important;
+        line-height: 1.6;
+        margin-top: 12px;
+    }
+
+    .empty-greeting {
+        text-align: center;
+        color: #8ba3c0;
+        font-size: 14px;
+        margin: 22vh 0 30px;
+    }
+
+    .empty-greeting .big {
+        display: block;
+        font-size: 24px;
+        font-weight: 600;
+        color: #e3f0ff;
+        margin-bottom: 6px;
+    }
 
     /* Trace box */
-    .trace-box { border: 0.5px solid #2a4a6b !important; border-radius: 12px; background: #132f4c !important; overflow: hidden; margin: 4px 0 14px; }
-    .trace-head { display: flex; align-items: center; gap: 7px; padding: 9px 13px; background: #1a3a5c !important; border-bottom: 0.5px solid #2a4a6b !important; font-size: 12px; }
-    .trace-head .title { font-weight: 600; color: #e3f0ff !important; }
-    .trace-head .meta { color: #8ba3c0 !important; }
-    .trace-body { padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; }
-    .trace-step { font-size: 13px; color: #b8ccea !important; }
-    .trace-step code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important; color: #e3f0ff !important; background: #1a3a5c !important; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
-    .trace-check { color: #3dd598 !important; font-weight: bold; margin-right: 6px; }
+    .trace-box {
+        border: 0.5px solid #2a4a6b !important;
+        border-radius: 12px;
+        background: #132f4c !important;
+        overflow: hidden;
+        margin: 4px 0 14px;
+    }
+
+    .trace-head {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 9px 13px;
+        background: #1a3a5c !important;
+        border-bottom: 0.5px solid #2a4a6b !important;
+        font-size: 12px;
+    }
+
+    .trace-head .title {
+        font-weight: 600;
+        color: #e3f0ff !important;
+    }
+
+    .trace-head .meta {
+        color: #8ba3c0 !important;
+    }
+
+    .trace-body {
+        padding: 10px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .trace-step {
+        font-size: 13px;
+        color: #b8ccea !important;
+    }
+
+    .trace-step code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+        color: #e3f0ff !important;
+        background: #1a3a5c !important;
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+
+    .trace-check {
+        color: #3dd598 !important;
+        font-weight: bold;
+        margin-right: 6px;
+    }
 
     /* Answer card */
-    .answer-card { border: 0.5px solid #2a4a6b !important; border-radius: 14px; padding: 16px 18px; background: #132f4c !important; margin-bottom: 12px; }
+    .answer-card {
+        border: 0.5px solid #2a4a6b !important;
+        border-radius: 14px;
+        padding: 16px 18px;
+        background: #132f4c !important;
+        margin-bottom: 12px;
+    }
 
-    /* Grounding panel (right column) */
-    .g-head { font-size: 13px; font-weight: 600; color: #3dd598 !important; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 0.5px solid #2a4a6b !important; }
-    .g-label { font-size: 11px; color: #8ba3c0 !important; margin-top: 12px; }
-    .g-value { font-size: 13px; font-weight: 600; color: #e3f0ff !important; }
-    .g-text { font-size: 12px; color: #b8ccea !important; line-height: 1.5; }
-    .g-sql { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important; font-size: 11px; background: #0a1929 !important; border: 0.5px solid #2a4a6b !important; border-radius: 8px; padding: 10px 12px; color: #b8ccea !important; line-height: 1.7; margin-top: 5px; }
-    .g-divider { height: 0.5px; background: #2a4a6b !important; margin: 14px 0; }
+    /* Grounding panel */
+    .g-head {
+        font-size: 13px;
+        font-weight: 600;
+        color: #3dd598 !important;
+        margin-bottom: 12px;
+        padding-bottom: 10px;
+        border-bottom: 0.5px solid #2a4a6b !important;
+    }
 
-    /* Ontology: floating detail card overlaid on the map's top-right corner. */
-    .st-key-onto_stage { position: relative !important; }
+    .g-label {
+        font-size: 11px;
+        color: #8ba3c0 !important;
+        margin-top: 12px;
+    }
+
+    .g-value {
+        font-size: 13px;
+        font-weight: 600;
+        color: #e3f0ff !important;
+    }
+
+    .g-text {
+        font-size: 12px;
+        color: #b8ccea !important;
+        line-height: 1.5;
+    }
+
+    .g-sql {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+        font-size: 11px;
+        background: #0a1929 !important;
+        border: 0.5px solid #2a4a6b !important;
+        border-radius: 8px;
+        padding: 10px 12px;
+        color: #b8ccea !important;
+        line-height: 1.7;
+        margin-top: 5px;
+    }
+
+    .g-divider {
+        height: 0.5px;
+        background: #2a4a6b !important;
+        margin: 14px 0;
+    }
+
+    /* Ontology detail card */
+    .st-key-onto_stage {
+        position: relative !important;
+    }
+
     .st-key-onto_detail_card {
-        position: absolute !important; top: 14px; right: 14px; z-index: 20 !important;
-        width: 320px !important; max-height: 560px !important; overflow-y: auto !important;
-        background: #132f4c !important; border: 1px solid #2a4a6b !important;
-        border-radius: 12px !important; box-shadow: 0 4px 16px rgba(0,0,0,0.5) !important;
+        position: absolute !important;
+        top: 14px;
+        right: 14px;
+        z-index: 20 !important;
+        width: 320px !important;
+        max-height: 560px !important;
+        overflow-y: auto !important;
+        background: #132f4c !important;
+        border: 1px solid #2a4a6b !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.5) !important;
         padding: 14px 16px !important;
     }
-    .g-row { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; }
-    .g-row .name { color: #8ba3c0 !important; }
-    .g-row .val { font-weight: 600; color: #e3f0ff !important; }
 
-    /* Ontology */
-    .onto-group-title { font-size: 11px; color: #8ba3c0 !important; margin: 14px 0 8px; text-transform: uppercase; letter-spacing: 0.04em; }
-    .onto-item { display: flex; justify-content: space-between; font-size: 13px; color: #b8ccea !important; padding: 4px 0; }
-    .onto-item .count { color: #8ba3c0 !important; font-size: 12px; }
-    .metric-card { border: 0.5px solid #2a4a6b !important; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; background: #132f4c !important; }
-    .metric-card .m-name { font-size: 13px; font-weight: 600; color: #e3f0ff !important; }
-    .metric-card .m-def { font-size: 12px; color: #b8ccea !important; margin-top: 2px; line-height: 1.4; }
-    .metric-card .m-view { font-size: 11px; color: #8ba3c0 !important; margin-top: 5px; font-family: ui-monospace, Menlo, Consolas, monospace !important; }
-
-    /* Scrollable message area: capped width (a bit wider than the composer) + centered,
-       so long messages don't span full width and cause layout shift. */
-    .st-key-msg_scroll {
-        border: none !important; background: transparent !important;
-        box-shadow: none !important; padding: 0 8px 90px !important;
-        max-width: 820px !important; margin: 0 auto !important;
+    .g-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        padding: 5px 0;
     }
 
-    /* Composer — align the bottom-fixed input with the main content's full-width padding. */
-    [data-testid="stChatInput"] { border-radius: 14px !important; border: 1px solid #2a4a6b !important; background: #132f4c !important; }
-    [data-testid="stChatInput"] textarea { font-size: 14px !important; background: #132f4c !important; color: #e3f0ff !important; }
-    [data-testid="stBottom"] { background: transparent !important; }
-    [data-testid="stBottom"] > div { max-width: 100% !important; padding: 0 !important; }
+    .g-row .name {
+        color: #8ba3c0 !important;
+    }
+
+    .g-row .val {
+        font-weight: 600;
+        color: #e3f0ff !important;
+    }
+
+    /* Ontology */
+    .onto-group-title {
+        font-size: 11px;
+        color: #8ba3c0 !important;
+        margin: 14px 0 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .onto-item {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        color: #b8ccea !important;
+        padding: 4px 0;
+    }
+
+    .onto-item .count {
+        color: #8ba3c0 !important;
+        font-size: 12px;
+    }
+
+    .metric-card {
+        border: 0.5px solid #2a4a6b !important;
+        border-radius: 10px;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+        background: #132f4c !important;
+    }
+
+    .metric-card .m-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: #e3f0ff !important;
+    }
+
+    .metric-card .m-def {
+        font-size: 12px;
+        color: #b8ccea !important;
+        margin-top: 2px;
+        line-height: 1.4;
+    }
+
+    .metric-card .m-view {
+        font-size: 11px;
+        color: #8ba3c0 !important;
+        margin-top: 5px;
+        font-family: ui-monospace, Menlo, Consolas, monospace !important;
+    }
+
+    /* Scrollable message area */
+    .st-key-msg_scroll {
+        border: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        padding: 0 8px 90px !important;
+        max-width: 820px !important;
+        margin: 0 auto !important;
+    }
+
+    /* Chat composer */
+    [data-testid="stChatInput"] {
+        border-radius: 14px !important;
+        border: 1px solid #2a4a6b !important;
+        background: #132f4c !important;
+    }
+
+    [data-testid="stChatInput"] textarea {
+        font-size: 14px !important;
+        background: #132f4c !important;
+        color: #e3f0ff !important;
+    }
+
+    [data-testid="stBottom"] {
+        background: transparent !important;
+    }
+
+    [data-testid="stBottom"] > div {
+        max-width: 100% !important;
+        padding: 0 !important;
+    }
+
     [data-testid="stBottomBlockContainer"] {
         max-width: 100% !important;
         padding: 0 2rem !important;
@@ -296,21 +687,36 @@ st.markdown("""
         background: #0a1929 !important;
     }
 
-    /* Sidebar is fixed-width and non-collapsible (hide the collapse arrow). */
-    [data-testid="stSidebar"] { width: 300px !important; min-width: 300px !important; }
-    [data-testid="stSidebarCollapseButton"], [data-testid="stSidebarCollapse"],
-    [data-testid="collapsedControl"] { display: none !important; }
-    /* Composer docked to the bottom of the screen (fixed), offset by the fixed sidebar width.
-       Gradient fades from the dark bg to transparent so long messages fade behind the composer. */
+    /* Fixed sidebar */
+    [data-testid="stSidebar"] {
+        width: 300px !important;
+        min-width: 300px !important;
+    }
+
+    [data-testid="stSidebarCollapseButton"],
+    [data-testid="stSidebarCollapse"],
+    [data-testid="collapsedControl"] {
+        display: none !important;
+    }
+
+    /* Fixed composer */
     .st-key-composer_dock {
         position: fixed !important;
-        bottom: 0 !important; left: 300px !important; right: 0 !important;
-        width: auto !important; box-sizing: border-box !important;
+        bottom: 0 !important;
+        left: 300px !important;
+        right: 0 !important;
+        width: auto !important;
+        box-sizing: border-box !important;
         z-index: 100 !important;
-        background: linear-gradient(to top, #0a1929 62%, rgba(10,25,41,0)) !important;
+        background: linear-gradient(
+            to top,
+            #0a1929 62%,
+            rgba(10,25,41,0)
+        ) !important;
         padding: 10px 2rem 16px !important;
     }
-    /* Composer Bar */
+
+    /* Composer bar */
     .st-key-composer_bar {
         border: 1px solid #2a4a6b !important;
         border-radius: 20px !important;
@@ -320,24 +726,33 @@ st.markdown("""
         margin: 0 auto !important;
         max-width: 760px !important;
     }
+
     .st-key-composer_bar [data-testid="stHorizontalBlock"] {
         gap: 6px !important;
         align-items: center !important;
     }
+
     .st-key-composer_bar [data-testid="stTextInput"] > div > div {
         border: none !important;
         background: transparent !important;
         box-shadow: none !important;
         padding: 0 !important;
     }
+
     .st-key-composer_bar [data-testid="stTextInput"] input {
         font-size: 14px !important;
         padding: 2px 8px !important;
-        min-height: 0 !important; height: 30px !important;
+        min-height: 0 !important;
+        height: 30px !important;
         background: transparent !important;
         color: #e3f0ff !important;
     }
-    .st-key-composer_bar [data-testid="stTextInput"] input::placeholder { color: #5f7a99 !important; }
+
+    .st-key-composer_bar [data-testid="stTextInput"] input::placeholder {
+        color: #5f7a99 !important;
+    }
+
+    /* Audio recorder */
     .st-key-composer_bar [data-testid="stAudioInput"] {
         border: none !important;
         background: transparent !important;
@@ -345,12 +760,14 @@ st.markdown("""
         padding: 0 !important;
         min-height: 0 !important;
     }
+
     .st-key-composer_bar [data-testid="stAudioInput"] > div {
         min-height: 0 !important;
         padding: 0 !important;
         background: transparent !important;
     }
-    /* Audio recorder: keep only the mic button; hide the waveform (the dots) and timecode. */
+
+    /* Hide waveform / timecode */
     .st-key-composer_bar [data-testid="stAudioInputWaveSurfer"],
     .st-key-composer_bar [data-testid="stAudioInputWaveformTimeCode"],
     .st-key-composer_bar [data-testid="stAudioInput"] time,
@@ -358,7 +775,12 @@ st.markdown("""
     .st-key-composer_bar [data-testid="stAudioInput"] canvas {
         display: none !important;
     }
-    .st-key-composer_bar [data-testid="stAudioInput"] { max-width: 44px !important; overflow: hidden !important; }
+
+    .st-key-composer_bar [data-testid="stAudioInput"] {
+        max-width: 44px !important;
+        overflow: hidden !important;
+    }
+
     .st-key-composer_bar [data-testid="stButton"] button {
         border-radius: 18px !important;
         height: 32px !important;
@@ -367,14 +789,17 @@ st.markdown("""
         padding: 0 14px !important;
     }
 
-    /* Dataframes rendered via st.dataframe need explicit dark surfaces —
-       Streamlit's theme engine handles the grid itself, but the wrapper
-       sometimes leaks a white box behind headers. */
-    [data-testid="stDataFrame"] { background: #132f4c !important; border-radius: 8px !important; }
+    /* Dataframes */
+    [data-testid="stDataFrame"] {
+        background: #132f4c !important;
+        border-radius: 8px !important;
+    }
 
-    /* Error/warning/info boxes: Streamlit's defaults look washed out on dark;
-       keep the semantic colors but swap backgrounds to tinted panels. */
-    [data-testid="stAlert"] { background: #132f4c !important; border: 1px solid #2a4a6b !important; }
+    /* Alerts */
+    [data-testid="stAlert"] {
+        background: #132f4c !important;
+        border: 1px solid #2a4a6b !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
